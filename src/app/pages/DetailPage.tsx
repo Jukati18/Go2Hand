@@ -2,8 +2,6 @@
 
 // ============================================
 // DETAIL PAGE — Device detail view
-// Route: /devices/[id]
-// Matches Figma Week 2 design spec
 // ============================================
 
 import { useState } from 'react';
@@ -27,6 +25,7 @@ import { Device, CheckStatus } from '@/types/device';
 import DeviceCard from '@/components/devices/DeviceCard';
 import RatingStars from '@/components/layout/RatingStars';
 import ConditionBadge from '@/components/ui/ConditionBadge';
+import Footer from '@/components/layout/Footer';
 
 // ── Check dot colors ──────────────────────
 const CHECK_DOT: Record<CheckStatus, string> = {
@@ -530,37 +529,8 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
             </div>
 
             {/* ==================== FOOTER ==================== */}
-            <footer className="bg-gray-900 text-gray-400">
-                <div className="max-w-[1160px] mx-auto px-6 py-10 grid grid-cols-[2fr_1fr_1fr_1fr] gap-10">
-                    <div>
-                        <p className="text-white font-bold text-[17px] mb-2">Go2Hand</p>
-                        <p className="text-sm leading-relaxed">
-                            Vietnam's most trusted marketplace for pre-owned devices.
-                            Every device verified, every transaction protected.
-                        </p>
-                    </div>
-                    {[
-                        { title: 'Buy', links: ['Browse Phones', 'Browse Laptops', 'Browse Tablets', 'How Escrow Works', 'Buyer Protection'] },
-                        { title: 'Sell', links: ['List a Device', 'Condition Guide', 'Seller Guidelines', 'Get Verified', 'Fees & Payouts'] },
-                        { title: 'Company', links: ['About Us', 'Trust & Safety', 'FAQ', 'Contact', 'Blog'] },
-                    ].map(({ title, links }) => (
-                        <div key={title}>
-                            <p className="text-white text-xs font-bold uppercase tracking-widest mb-3">{title}</p>
-                            {links.map((link) => (
-                                <Link key={link} href="#"
-                                    className="block text-sm mb-1.5 hover:text-white transition-colors">
-                                    {link}
-                                </Link>
-                            ))}
-                        </div>
-                    ))}
-                </div>
-                <div className="max-w-[1160px] mx-auto px-6 py-5 border-t border-gray-800
-                        flex justify-between text-xs">
-                    <span>© 2025 Go2Hand. All rights reserved.</span>
-                    <span>Privacy Policy · Terms of Service</span>
-                </div>
-            </footer>
+            {/* ✅ Using shared <Footer /> — edit Footer.tsx to change this on all pages */}
+            <Footer />
 
             {/* ==================== TOAST ==================== */}
             {toast && (
