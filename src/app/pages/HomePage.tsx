@@ -1,7 +1,6 @@
 'use client';
 // src/app/pages/HomePage.tsx
-// ─── CHANGE: removed `import { FEATURED_DEVICES }` ──────────────
-//             now fetches from Supabase via useEffect
+
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
