@@ -1,0 +1,14 @@
+{
+    "framework": "nextjs",
+    "buildCommand": "npm run build",
+    "devCommand": "npm run dev",
+    "installCommand": "npm install",
+    "regions": [
+        "sin1"
+    ],
+    "env": {
+        "NEXT_PUBLIC_SUPABASE_URL": "@go2hand-supabase-url",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@go2hand-supabase-anon-key",
+        "NEXT_PUBLIC_MEDUSA_BACKEND_URL": "@go2hand-medusa-backend-url"
+    }
+}
