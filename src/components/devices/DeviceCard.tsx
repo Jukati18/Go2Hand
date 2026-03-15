@@ -21,8 +21,6 @@ interface DeviceCardProps {
 }
 
 export default function DeviceCard({ device, className = '' }: DeviceCardProps) {
-    const discount = Math.round((1 - device.price / device.originalPrice) * 100);
-
     return (
         // Clicking anywhere on the card navigates to the detail page
         <Link

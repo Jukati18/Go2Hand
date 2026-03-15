@@ -9,9 +9,7 @@ import { useState } from "react";
 import {
     MagnifyingGlassIcon,
     HeartIcon,
-    ShoppingCartIcon,
 } from '@heroicons/react/24/outline';
-import { CheckBadgeIcon } from '@heroicons/react/24/solid';
 
 interface NavbarProps {
     /** Prefill the search input (e.g. on detail page) */

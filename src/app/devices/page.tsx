@@ -1,8 +1,7 @@
 'use client';
 // src/app/devices/page.tsx
-// Listing / browse page — replaces any local ALL_DEVICES usage
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
@@ -41,25 +40,26 @@ export default function DevicesPage() {
     const category = searchParams.get('category') ?? undefined
     const search   = searchParams.get('q')        ?? undefined
 
-    // ── Fetch on filter change ──────────────────────────────────────
-    const fetchDevices = useCallback(async () => {
-        setLoading(true)
-        const { devices, total } = await getDevices({
-            category,
-            search,
-            condition: condition || undefined,
-            minPrice:  minPrice ? Number(minPrice) : undefined,
-            maxPrice:  maxPrice ? Number(maxPrice) : undefined,
-            sortBy,
-            page,
-            limit: 20,
-        })
-        setDevices(devices)
-        setTotal(total)
-        setLoading(false)
-    }, [category, search, condition, minPrice, maxPrice, sortBy, page])
+    useEffect(() => {
+        const fetchDevices = async () => {
+            setLoading(true)
+            const { devices, total } = await getDevices({
+                category,
+                search,
+                condition: condition || undefined,
+                minPrice:  minPrice ? Number(minPrice) : undefined,
+                maxPrice:  maxPrice ? Number(maxPrice) : undefined,
+                sortBy,
+                page,
+                limit: 20,
+            })
+            setDevices(devices)
+            setTotal(total)
+            setLoading(false)
+        }
 
-    useEffect(() => { fetchDevices() }, [fetchDevices])
+        fetchDevices()
+    }, [category, search, condition, minPrice, maxPrice, sortBy, page])
 
     const totalPages = Math.ceil(total / 20)
 
@@ -71,8 +71,10 @@ export default function DevicesPage() {
                 {/* ── Header ── */}
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-gray-900">
-                        {category ? `${category.charAt(0).toUpperCase() + category.slice(1)}` : 'All Devices'}
-                        {search && <span className="font-normal text-gray-400"> — "{search}"</span>}
+                        {category
+                            ? `${category.charAt(0).toUpperCase() + category.slice(1)}`
+                            : 'All Devices'}
+                        {search && <span className="font-normal text-gray-400"> — &quot;{search}&quot;</span>}
                     </h1>
                     <p className="text-sm text-gray-400 mt-1">{total} devices available</p>
                 </div>

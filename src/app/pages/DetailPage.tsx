@@ -24,7 +24,6 @@ import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
 import { Device, CheckStatus } from '@/types/device';
 import DeviceCard from '@/components/devices/DeviceCard';
 import RatingStars from '@/components/layout/RatingStars';
-import ConditionBadge from '@/components/ui/ConditionBadge';
 import Footer from '@/components/layout/Footer';
 
 // ── Check dot colors ──────────────────────

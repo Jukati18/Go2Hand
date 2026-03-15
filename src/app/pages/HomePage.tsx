@@ -4,7 +4,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import DeviceCard from '@/components/devices/DeviceCard';
@@ -65,7 +64,7 @@ export default function HomePage() {
                 <div className="max-w-[1160px] mx-auto flex items-center gap-16">
                     <div className="flex-1 max-w-xl">
                         <span className="inline-block text-xs font-bold text-teal-300 tracking-widest uppercase mb-4">
-                            Vietnam's Trusted Marketplace
+                            Vietnam&apos;s Trusted Marketplace
                         </span>
                         <h1 className="text-5xl font-black text-white leading-[1.1] mb-5">
                             Buy & Sell<br />
