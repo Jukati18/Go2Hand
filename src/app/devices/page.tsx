@@ -1,7 +1,8 @@
 'use client';
 // src/app/devices/page.tsx
+// Listing / browse page — useSearchParams wrapped in Suspense to satisfy Next.js SSG
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
@@ -24,8 +25,12 @@ const SORTS = [
     { label: 'Most Popular', value: 'popular'    },
 ]
 
-export default function DevicesPage() {
-    const searchParams  = useSearchParams()
+// ─────────────────────────────────────────────────────────────────
+// Inner component — contains all useSearchParams() logic.
+// Must be a separate component so <Suspense> can wrap it below.
+// ─────────────────────────────────────────────────────────────────
+function DevicesContent() {
+    const searchParams = useSearchParams()
 
     // ── Filter state ────────────────────────────────────────────────
     const [devices,   setDevices]   = useState<Device[]>([])
@@ -40,134 +45,182 @@ export default function DevicesPage() {
     const category = searchParams.get('category') ?? undefined
     const search   = searchParams.get('q')        ?? undefined
 
-    useEffect(() => {
-        const fetchDevices = async () => {
-            setLoading(true)
-            const { devices, total } = await getDevices({
-                category,
-                search,
-                condition: condition || undefined,
-                minPrice:  minPrice ? Number(minPrice) : undefined,
-                maxPrice:  maxPrice ? Number(maxPrice) : undefined,
-                sortBy,
-                page,
-                limit: 20,
-            })
-            setDevices(devices)
-            setTotal(total)
-            setLoading(false)
-        }
-
-        fetchDevices()
+    // ── Fetch on filter change ──────────────────────────────────────
+    const fetchDevices = useCallback(async () => {
+        setLoading(true)
+        const { devices, total } = await getDevices({
+            category,
+            search,
+            condition: condition || undefined,
+            minPrice:  minPrice ? Number(minPrice) : undefined,
+            maxPrice:  maxPrice ? Number(maxPrice) : undefined,
+            sortBy,
+            page,
+            limit: 20,
+        })
+        setDevices(devices)
+        setTotal(total)
+        setLoading(false)
     }, [category, search, condition, minPrice, maxPrice, sortBy, page])
+
+    useEffect(() => { fetchDevices() }, [fetchDevices])
 
     const totalPages = Math.ceil(total / 20)
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <Navbar />
-
-            <div className="max-w-[1160px] mx-auto px-6 py-10">
-                {/* ── Header ── */}
-                <div className="mb-6">
-                    <h1 className="text-2xl font-bold text-gray-900">
-                        {category
-                            ? `${category.charAt(0).toUpperCase() + category.slice(1)}`
-                            : 'All Devices'}
-                        {search && <span className="font-normal text-gray-400"> — &quot;{search}&quot;</span>}
-                    </h1>
-                    <p className="text-sm text-gray-400 mt-1">{total} devices available</p>
-                </div>
-
-                <div className="flex gap-8">
-                    {/* ── Sidebar filters ── */}
-                    <aside className="w-56 shrink-0 space-y-6">
-                        {/* Condition */}
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Condition</p>
-                            {CONDITIONS.map(c => (
-                                <button key={c.value}
-                                    onClick={() => { setCondition(c.value); setPage(1) }}
-                                    className={`block w-full text-left text-sm py-1.5 px-3 rounded-lg mb-1 transition-colors
-                                        ${condition === c.value ? 'bg-teal-50 text-teal-800 font-semibold' : 'text-gray-600 hover:bg-gray-100'}`}>
-                                    {c.label}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Price range */}
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Price Range ($)</p>
-                            <div className="flex gap-2">
-                                <input type="number" placeholder="Min" value={minPrice}
-                                    onChange={e => { setMinPrice(e.target.value); setPage(1) }}
-                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-                                <input type="number" placeholder="Max" value={maxPrice}
-                                    onChange={e => { setMaxPrice(e.target.value); setPage(1) }}
-                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-                            </div>
-                        </div>
-                    </aside>
-
-                    {/* ── Main grid ── */}
-                    <div className="flex-1">
-                        {/* Sort bar */}
-                        <div className="flex items-center justify-end gap-3 mb-5">
-                            <span className="text-sm text-gray-400">Sort by</span>
-                            <select value={sortBy} onChange={e => { setSortBy(e.target.value as ListingFilters['sortBy']); setPage(1) }}
-                                className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-                                {SORTS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                            </select>
-                        </div>
-
-                        {/* Skeletons */}
-                        {loading && (
-                            <div className="grid grid-cols-3 gap-4">
-                                {Array.from({ length: 6 }).map((_, i) => (
-                                    <div key={i} className="bg-white rounded-2xl border border-gray-100 h-72 animate-pulse">
-                                        <div className="bg-gray-100 h-44 rounded-t-2xl" />
-                                        <div className="p-4 space-y-2">
-                                            <div className="bg-gray-100 h-3 rounded w-1/3" />
-                                            <div className="bg-gray-100 h-4 rounded w-3/4" />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Grid — DeviceCard unchanged */}
-                        {!loading && devices.length > 0 && (
-                            <div className="grid grid-cols-3 gap-4">
-                                {devices.map(d => <DeviceCard key={d.id} device={d} />)}
-                            </div>
-                        )}
-
-                        {/* Empty */}
-                        {!loading && devices.length === 0 && (
-                            <div className="text-center py-24 text-gray-400">
-                                <p className="text-lg font-medium">No devices found</p>
-                                <p className="text-sm mt-1">Try adjusting your filters</p>
-                            </div>
-                        )}
-
-                        {/* Pagination */}
-                        {totalPages > 1 && (
-                            <div className="flex justify-center gap-2 mt-10">
-                                <button disabled={page === 1} onClick={() => setPage(p => p - 1)}
-                                    className="px-4 py-2 rounded-lg border border-gray-200 text-sm disabled:opacity-40 hover:bg-gray-50">
-                                    ← Prev
-                                </button>
-                                <span className="px-4 py-2 text-sm text-gray-500">{page} / {totalPages}</span>
-                                <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)}
-                                    className="px-4 py-2 rounded-lg border border-gray-200 text-sm disabled:opacity-40 hover:bg-gray-50">
-                                    Next →
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
+        <div className="max-w-[1160px] mx-auto px-6 py-10">
+            {/* ── Header ── */}
+            <div className="mb-6">
+                <h1 className="text-2xl font-bold text-gray-900">
+                    {category
+                        ? `${category.charAt(0).toUpperCase() + category.slice(1)}`
+                        : 'All Devices'}
+                    {search && <span className="font-normal text-gray-400"> — "{search}"</span>}
+                </h1>
+                <p className="text-sm text-gray-400 mt-1">{total} devices available</p>
             </div>
 
+            <div className="flex gap-8">
+                {/* ── Sidebar filters ── */}
+                <aside className="w-56 shrink-0 space-y-6">
+                    {/* Condition */}
+                    <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Condition</p>
+                        {CONDITIONS.map(c => (
+                            <button key={c.value}
+                                onClick={() => { setCondition(c.value); setPage(1) }}
+                                className={`block w-full text-left text-sm py-1.5 px-3 rounded-lg mb-1 transition-colors
+                                    ${condition === c.value ? 'bg-teal-50 text-teal-800 font-semibold' : 'text-gray-600 hover:bg-gray-100'}`}>
+                                {c.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Price range */}
+                    <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Price Range ($)</p>
+                        <div className="flex gap-2">
+                            <input type="number" placeholder="Min" value={minPrice}
+                                onChange={e => { setMinPrice(e.target.value); setPage(1) }}
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                            <input type="number" placeholder="Max" value={maxPrice}
+                                onChange={e => { setMaxPrice(e.target.value); setPage(1) }}
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                        </div>
+                    </div>
+                </aside>
+
+                {/* ── Main grid ── */}
+                <div className="flex-1">
+                    {/* Sort bar */}
+                    <div className="flex items-center justify-end gap-3 mb-5">
+                        <span className="text-sm text-gray-400">Sort by</span>
+                        <select value={sortBy}
+                            onChange={e => { setSortBy(e.target.value as ListingFilters['sortBy']); setPage(1) }}
+                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                            {SORTS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                        </select>
+                    </div>
+
+                    {/* Skeletons */}
+                    {loading && (
+                        <div className="grid grid-cols-3 gap-4">
+                            {Array.from({ length: 6 }).map((_, i) => (
+                                <div key={i} className="bg-white rounded-2xl border border-gray-100 h-72 animate-pulse">
+                                    <div className="bg-gray-100 h-44 rounded-t-2xl" />
+                                    <div className="p-4 space-y-2">
+                                        <div className="bg-gray-100 h-3 rounded w-1/3" />
+                                        <div className="bg-gray-100 h-4 rounded w-3/4" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Grid */}
+                    {!loading && devices.length > 0 && (
+                        <div className="grid grid-cols-3 gap-4">
+                            {devices.map(d => <DeviceCard key={d.id} device={d} />)}
+                        </div>
+                    )}
+
+                    {/* Empty state */}
+                    {!loading && devices.length === 0 && (
+                        <div className="text-center py-24 text-gray-400">
+                            <p className="text-lg font-medium">No devices found</p>
+                            <p className="text-sm mt-1">Try adjusting your filters</p>
+                        </div>
+                    )}
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="flex justify-center gap-2 mt-10">
+                            <button disabled={page === 1} onClick={() => setPage(p => p - 1)}
+                                className="px-4 py-2 rounded-lg border border-gray-200 text-sm disabled:opacity-40 hover:bg-gray-50">
+                                ← Prev
+                            </button>
+                            <span className="px-4 py-2 text-sm text-gray-500">{page} / {totalPages}</span>
+                            <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)}
+                                className="px-4 py-2 rounded-lg border border-gray-200 text-sm disabled:opacity-40 hover:bg-gray-50">
+                                Next →
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Skeleton shown by Suspense while DevicesContent hydrates.
+// Keeps the layout stable — Navbar & Footer render immediately.
+// ─────────────────────────────────────────────────────────────────
+function DevicesPageSkeleton() {
+    return (
+        <div className="max-w-[1160px] mx-auto px-6 py-10">
+            <div className="mb-6">
+                <div className="bg-gray-200 h-7 w-48 rounded animate-pulse" />
+                <div className="bg-gray-100 h-4 w-32 rounded mt-2 animate-pulse" />
+            </div>
+            <div className="flex gap-8">
+                <div className="w-56 shrink-0 space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="bg-gray-100 h-8 rounded-lg animate-pulse" />
+                    ))}
+                </div>
+                <div className="flex-1 grid grid-cols-3 gap-4">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="bg-white rounded-2xl border border-gray-100 h-72 animate-pulse">
+                            <div className="bg-gray-100 h-44 rounded-t-2xl" />
+                            <div className="p-4 space-y-2">
+                                <div className="bg-gray-100 h-3 rounded w-1/3" />
+                                <div className="bg-gray-100 h-4 rounded w-3/4" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Page export — Suspense boundary satisfies Next.js SSG requirement
+// ─────────────────────────────────────────────────────────────────
+export default function DevicesPage() {
+    return (
+        <div className="min-h-screen bg-gray-50">
+            <Navbar />
+            {/*
+              * KEY FIX: <Suspense> wraps DevicesContent which calls useSearchParams().
+              * Next.js requires this so it can statically render the shell (Navbar +
+              * Footer + fallback skeleton) and defer the dynamic URL-reading part
+              * to the client after hydration.
+              */}
+            <Suspense fallback={<DevicesPageSkeleton />}>
+                <DevicesContent />
+            </Suspense>
             <Footer />
         </div>
     )
