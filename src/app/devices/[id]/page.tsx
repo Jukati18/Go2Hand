@@ -3,7 +3,7 @@
 
 import { notFound } from 'next/navigation'
 import { getDeviceById, getSimilarDevices } from '@/lib/deviceService'
-import DetailPage from '@/app/pages/DetailPage'
+import DeviceDetailClient from '@/components/devices/DeviceDetailClient';
 import { supabase } from '@/lib/supabaseClient'
 
 interface Props {
@@ -31,7 +31,7 @@ export default async function DeviceDetailRoute({ params }: Props) {
         : []
 
     // 3. DetailPage is the UNCHANGED UI component — just pass props
-    return <DetailPage device={device} similarDevices={similarDevices} />
+    return <DeviceDetailClient device={device} similarDevices={similarDevices} />
 }
 
 // Optional: generate page titles for SEO
