@@ -1,5 +1,5 @@
 // lib/orderService.ts
-import { supabase } from './supabaseClient'
+import { supabase } from '../lib/supabaseClient'
 
 export async function createOrder(orderData: Record<string, unknown>) {
     const { data, error } = await supabase

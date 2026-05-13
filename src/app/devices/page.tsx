@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import DeviceCard from '@/components/devices/DeviceCard'
-import { getDevices, type ListingFilters } from '@/lib/deviceService'
+import { getDevices, type ListingFilters } from '@/services/deviceService'
 import type { Device } from '@/types/device'
 
 const CONDITIONS = [

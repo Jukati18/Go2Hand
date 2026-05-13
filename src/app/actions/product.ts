@@ -21,7 +21,7 @@ import {
     createProduct,
     updateProduct,
     deleteProduct,
-} from '@/lib/productService'
+} from '@/services/productService'
 import type { CreateProductInput, UpdateProductInput } from '@/types/product'
 
 // ─────────────────────────────────────────────────────────────────────────────

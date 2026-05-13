@@ -25,10 +25,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { getDevices } from '@/lib/deviceService'
-import { createProduct } from '@/lib/productService'
+import { getDevices } from '@/services/deviceService'
+import { createProduct } from '@/services/productService'
 import type { CreateProductInput } from '@/types/product'
-import type { ListingFilters } from '@/lib/deviceService'
+import type { ListingFilters } from '@/services/deviceService'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/products

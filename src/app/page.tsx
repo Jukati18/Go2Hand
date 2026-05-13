@@ -7,7 +7,7 @@ import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import DeviceCard from '@/components/devices/DeviceCard';
-import { getFeaturedDevices } from '@/lib/deviceService';
+import { getFeaturedDevices } from '@/services/deviceService';
 import type { Device } from '@/types/device';
 
 // ── (unchanged) category pills ───────────────────────────────────

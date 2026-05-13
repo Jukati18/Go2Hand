@@ -2,7 +2,7 @@
 // Server Component — fetches device from Supabase, renders DetailPage
 
 import { notFound } from 'next/navigation'
-import { getDeviceById, getSimilarDevices } from '@/lib/deviceService'
+import { getDeviceById, getSimilarDevices } from '@/services/deviceService'
 import DeviceDetailClient from '@/components/devices/DeviceDetailClient';
 import { supabase } from '@/lib/supabaseClient'
 

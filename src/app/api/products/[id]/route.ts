@@ -9,8 +9,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { getDeviceById } from '@/lib/deviceService'
-import { updateProduct, deleteProduct } from '@/lib/productService'
+import { getDeviceById } from '@/services/deviceService'
+import { updateProduct, deleteProduct } from '@/services/productService'
 import type { UpdateProductInput } from '@/types/product'
 
 // ─────────────────────────────────────────────────────────────────────────────

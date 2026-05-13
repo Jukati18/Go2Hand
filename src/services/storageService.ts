@@ -1,5 +1,5 @@
 // lib/storageService.ts — upload device photos to Supabase Storage
-import { supabase } from './supabaseClient'
+import { supabase } from '../lib/supabaseClient'
 
 const BUCKET = 'device-images'
 

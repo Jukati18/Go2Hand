@@ -1,5 +1,5 @@
 // lib/authService.ts
-import { supabase } from './supabaseClient'
+import { supabase } from '../lib/supabaseClient'
 
 export async function signUp(email: string, password: string, username: string) {
     // 1. Create auth user
