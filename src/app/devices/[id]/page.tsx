@@ -7,23 +7,27 @@ import DetailPage from '@/app/pages/DetailPage'
 import { supabase } from '@/lib/supabaseClient'
 
 interface Props {
-    params: { id: string }
+    // In Next.js 15+, params is a Promise — must be awaited
+    params: Promise<{ id: string }>
 }
 
 export default async function DeviceDetailRoute({ params }: Props) {
+    // ✅ Await params before accessing .id
+    const { id } = await params
+
     // 1. Fetch main device from Supabase
-    const device = await getDeviceById(params.id)
+    const device = await getDeviceById(id)
     if (!device) notFound()
 
     // 2. Resolve category_id to fetch similar devices
     const { data: product } = await supabase
         .from('products')
         .select('category_id')
-        .eq('id', params.id)
+        .eq('id', id)
         .single()
 
     const similarDevices = product?.category_id
-        ? await getSimilarDevices(product.category_id, params.id, 4)
+        ? await getSimilarDevices(product.category_id, id, 4)
         : []
 
     // 3. DetailPage is the UNCHANGED UI component — just pass props
@@ -32,7 +36,10 @@ export default async function DeviceDetailRoute({ params }: Props) {
 
 // Optional: generate page titles for SEO
 export async function generateMetadata({ params }: Props) {
-    const device = await getDeviceById(params.id)
+    // ✅ Also await params here
+    const { id } = await params
+
+    const device = await getDeviceById(id)
     if (!device) return {}
     return {
         title: `${device.fullName} — Go2Hand`,
