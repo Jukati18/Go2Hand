@@ -1,26 +1,29 @@
 // ============================================
-// PRODUCT SERVICE — write operations (CUD)
+// DEVICE WRITE SERVICE — write operations (CUD)
 // Read operations live in deviceService.ts
 //
 // These functions run on the SERVER (Server Actions,
 // API routes). They use the Supabase client with
 // the user's session for RLS enforcement.
+//
+// Note: Supabase table is still named `products` at
+// the DB level. Only the TypeScript layer uses "device".
 // ============================================
 
 import { supabase } from '@/lib/supabaseClient'
 import type {
-    CreateProductInput,
-    UpdateProductInput,
-    ProductStatus,
-} from '@/types/product'
+    CreateDeviceInput,
+    UpdateDeviceInput,
+    ListingStatus,
+} from '@/types/deviceInput'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CREATE — insert a new device listing
-// Returns the new product's ID on success.
+// Returns the new device's ID on success.
 // ─────────────────────────────────────────────────────────────────────────────
-export async function createProduct(
+export async function createDevice(
     sellerId: string,
-    input: CreateProductInput
+    input: CreateDeviceInput
 ): Promise<{ id: string }> {
     // Validate minimum required images
     if (!input.images || input.images.length === 0) {
@@ -33,7 +36,7 @@ export async function createProduct(
     }
 
     const { data, error } = await supabase
-        .from('products')
+        .from('products')           // Supabase table name stays as-is
         .insert({
             seller_id: sellerId,
             title: input.title.trim(),
@@ -59,8 +62,8 @@ export async function createProduct(
             description: input.description?.trim() ?? null,
 
             // New listings start as active and not yet featured
-            status: 'active' as ProductStatus,
-            is_verified: false,       // admin verifies later
+            status: 'active' as ListingStatus,
+            is_verified: false,     // admin verifies later
             is_featured: false,
             view_count: 0,
         })
@@ -73,15 +76,15 @@ export async function createProduct(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UPDATE — edit fields on an existing listing
-// RLS on Supabase ensures only the seller can update their own products.
+// RLS on Supabase ensures only the seller can update their own listings.
 // ─────────────────────────────────────────────────────────────────────────────
-export async function updateProduct(
-    productId: string,
+export async function updateDevice(
+    deviceId: string,
     sellerId: string,
-    input: UpdateProductInput
+    input: UpdateDeviceInput
 ): Promise<void> {
-    // Build only the fields that were provided (partial update)
-    // We strip undefined values so we don't accidentally clear fields
+    // Build only the fields that were provided (partial update).
+    // We strip undefined values so we don't accidentally clear fields.
     const updates: Record<string, unknown> = {
         updated_at: new Date().toISOString(),
     }
@@ -105,7 +108,7 @@ export async function updateProduct(
         .from('products')
         .update(updates)
         // Double-check: only the seller who owns it can update
-        .eq('id', productId)
+        .eq('id', deviceId)
         .eq('seller_id', sellerId)
 
     if (error) throw new Error(`Failed to update listing: ${error.message}`)
@@ -113,19 +116,19 @@ export async function updateProduct(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DELETE (soft) — sets status to 'inactive' instead of hard delete.
-// This preserves order history that references this product.
+// This preserves order history that references this device.
 // ─────────────────────────────────────────────────────────────────────────────
-export async function deleteProduct(
-    productId: string,
+export async function deleteDevice(
+    deviceId: string,
     sellerId: string
 ): Promise<void> {
     const { error } = await supabase
         .from('products')
         .update({
-            status: 'inactive' as ProductStatus,
+            status: 'inactive' as ListingStatus,
             updated_at: new Date().toISOString(),
         })
-        .eq('id', productId)
+        .eq('id', deviceId)
         .eq('seller_id', sellerId)   // seller can only delete their own
 
     if (error) throw new Error(`Failed to delete listing: ${error.message}`)
@@ -134,33 +137,33 @@ export async function deleteProduct(
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK AS SOLD — called automatically when order is confirmed
 // ─────────────────────────────────────────────────────────────────────────────
-export async function markProductAsSold(productId: string): Promise<void> {
+export async function markDeviceAsSold(deviceId: string): Promise<void> {
     const { error } = await supabase
         .from('products')
         .update({
-            status: 'sold' as ProductStatus,
+            status: 'sold' as ListingStatus,
             updated_at: new Date().toISOString(),
         })
-        .eq('id', productId)
+        .eq('id', deviceId)
 
-    if (error) throw new Error(`Failed to mark product as sold: ${error.message}`)
+    if (error) throw new Error(`Failed to mark device as sold: ${error.message}`)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET SELLER LISTINGS — fetch all listings for a specific seller
+// GET SELLER DEVICES — fetch all listings for a specific seller
 // Used in the Seller Dashboard
 // ─────────────────────────────────────────────────────────────────────────────
-export async function getSellerListings(sellerId: string) {
+export async function getSellerDevices(sellerId: string) {
     const { data, error } = await supabase
         .from('products')
         .select(`
-        id, title, price, original_price, condition, status,
-        images, storage_capacity, color, battery_health,
-        view_count, is_verified, is_featured,
-        created_at, updated_at,
-        brand:brands ( id, name ),
-        category:categories ( id, name )
-    `)
+            id, title, price, original_price, condition, status,
+            images, storage_capacity, color, battery_health,
+            view_count, is_verified, is_featured,
+            created_at, updated_at,
+            brand:brands ( id, name ),
+            category:categories ( id, name )
+        `)
         .eq('seller_id', sellerId)
         // Show all statuses so seller can see sold/inactive too
         .order('created_at', { ascending: false })

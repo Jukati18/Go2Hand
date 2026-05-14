@@ -1,28 +1,29 @@
 // ============================================
-// /api/products/[id] — Single Product REST API
+// /api/devices/[id] — Single Device REST API
 //
-// GET    /api/products/:id  → fetch one device (public)
-// PUT    /api/products/:id  → update listing   (seller only)
-// DELETE /api/products/:id  → remove listing   (seller only)
+// GET    /api/devices/:id  → fetch one device (public)
+// PUT    /api/devices/:id  → update listing   (seller only)
+// DELETE /api/devices/:id  → remove listing   (seller only)
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { getDeviceById } from '@/services/deviceService'
-import { updateProduct, deleteProduct } from '@/services/productService'
-import type { UpdateProductInput } from '@/types/product'
+import { updateDevice, deleteDevice } from '@/services/deviceWriteService'
+import type { UpdateDeviceInput } from '@/types/deviceInput'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET /api/products/:id
+// GET /api/devices/:id
 // Public — no auth required. Returns full device detail.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function GET(
     _request: NextRequest,
-    { params }: { params: Promise<{ id: string }> } // Next.js 15+ requires params to be a Promise
+    { params }: { params: Promise<{ id: string }> }  // Next.js 15+ requires params to be a Promise
 ) {
     try {
-        const { id } = await params // Await params
+        const { id } = await params
+
         const device = await getDeviceById(id)
 
         if (!device) {
@@ -44,17 +45,17 @@ export async function GET(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PUT /api/products/:id
+// PUT /api/devices/:id
 // Update a listing — only the seller who owns it can update.
-// Body: Partial<UpdateProductInput> (only send fields you want to change)
+// Body: Partial<UpdateDeviceInput> (only send fields you want to change)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function PUT(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = await params // Await params
-        const cookieStore = await cookies() // Await cookies for Next.js 15+
+        const { id } = await params
+        const cookieStore = await cookies()
 
         // Initialize Supabase client using @supabase/ssr
         const supabase = createServerClient(
@@ -70,7 +71,7 @@ export async function PUT(
                             cookiesToSet.forEach(({ name, value, options }) => {
                                 cookieStore.set(name, value, options)
                             })
-                        } catch (error) {
+                        } catch {
                             // Ignore in edge cases where cookies cannot be set
                         }
                     },
@@ -87,7 +88,7 @@ export async function PUT(
             )
         }
 
-        let body: UpdateProductInput
+        let body: UpdateDeviceInput
         try {
             body = await request.json()
         } catch {
@@ -97,16 +98,16 @@ export async function PUT(
             )
         }
 
-        // productService.updateProduct enforces seller_id match via Supabase RLS
-        // So if the user doesn't own this product, the update silently affects 0 rows
-        await updateProduct(id, user.id, body)
+        // deviceWriteService.updateDevice enforces seller_id match via Supabase RLS.
+        // If the user doesn't own this device, the update silently affects 0 rows.
+        await updateDevice(id, user.id, body)
 
         return NextResponse.json({ success: true })
 
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Internal server error'
 
-        // If RLS blocks it, it throws a Supabase error — surface as 403
+        // If RLS blocks it, Supabase throws a permission error — surface as 403
         const status = message.includes('permission') || message.includes('RLS') ? 403 : 500
 
         return NextResponse.json(
@@ -117,7 +118,7 @@ export async function PUT(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DELETE /api/products/:id
+// DELETE /api/devices/:id
 // Soft-delete (sets status = 'inactive') — seller only
 // ─────────────────────────────────────────────────────────────────────────────
 export async function DELETE(
@@ -125,8 +126,8 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = await params // Await params
-        const cookieStore = await cookies() // Await cookies for Next.js 15+
+        const { id } = await params
+        const cookieStore = await cookies()
 
         // Initialize Supabase client using @supabase/ssr
         const supabase = createServerClient(
@@ -142,7 +143,7 @@ export async function DELETE(
                             cookiesToSet.forEach(({ name, value, options }) => {
                                 cookieStore.set(name, value, options)
                             })
-                        } catch (error) {
+                        } catch {
                             // Ignore in edge cases where cookies cannot be set
                         }
                     },
@@ -159,7 +160,7 @@ export async function DELETE(
             )
         }
 
-        await deleteProduct(id, user.id)
+        await deleteDevice(id, user.id)
 
         return NextResponse.json({ success: true })
 

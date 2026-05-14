@@ -1,8 +1,8 @@
 // ============================================
-// /api/products — REST API
+// /api/devices — REST API
 //
-// GET  /api/products              → list devices (with optional query params)
-// POST /api/products              → create a new device listing
+// GET  /api/devices   → list devices (with optional query params)
+// POST /api/devices   → create a new device listing
 //
 // These REST routes are an ALTERNATIVE to Server Actions.
 // Use them when you need to call from:
@@ -26,12 +26,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { getDevices } from '@/services/deviceService'
-import { createProduct } from '@/services/productService'
-import type { CreateProductInput } from '@/types/product'
+import { createDevice } from '@/services/deviceWriteService'
+import type { CreateDeviceInput } from '@/types/deviceInput'
 import type { ListingFilters } from '@/services/deviceService'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET /api/products
+// GET /api/devices
 // Returns paginated device listings with optional filters
 // ─────────────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
@@ -78,15 +78,15 @@ export async function GET(request: NextRequest) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api/products
+// POST /api/devices
 // Create a new device listing — requires authentication
-// Body: JSON matching CreateProductInput
+// Body: JSON matching CreateDeviceInput
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
     try {
         const cookieStore = await cookies()
-        // Get the current user from their session cookie
-        // createRouteHandlerClient handles the cookie-based session for API routes
+
+        // Initialize Supabase with the user's session cookie
         const supabase = createServerClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -101,14 +101,14 @@ export async function POST(request: NextRequest) {
                                 cookieStore.set(name, value, options)
                             )
                         } catch {
-                            // The `setAll` method was called from a Server Component.
-                            // This can be ignored if you have middleware refreshing
-                            // user sessions.
+                            // Called from a Server Component — safe to ignore.
+                            // Middleware handles session refresh.
                         }
                     },
                 },
             }
         )
+
         const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Parse and validate request body
-        let body: CreateProductInput
+        let body: CreateDeviceInput
         try {
             body = await request.json()
         } catch {
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
 
         // Basic validation — check required fields exist
         const required = ['title', 'brand_id', 'category_id', 'price', 'condition', 'images']
-        const missing = required.filter(field => !body[field as keyof CreateProductInput])
+        const missing = required.filter(field => !body[field as keyof CreateDeviceInput])
 
         if (missing.length > 0) {
             return NextResponse.json(
@@ -140,8 +140,8 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Create the product
-        const { id } = await createProduct(user.id, body)
+        // Create the device listing
+        const { id } = await createDevice(user.id, body)
 
         return NextResponse.json(
             { success: true, data: { id } },
