@@ -58,11 +58,9 @@ function mapProduct(row: any): Device {
         responseTime: '< 2hrs',
     }
 
-    // Parse storage options from specs JSON if available
     const specs = row.specs ?? {}
     const storageVal = row.storage_capacity ?? specs.storage ?? '—'
 
-    // Build DeviceSpec array from Supabase specs JSON
     const deviceSpecs = [
         { label: 'Brand', value: row.brand?.name ?? '—' },
         { label: 'Storage', value: storageVal, highlighted: true },
@@ -96,10 +94,10 @@ function mapProduct(row: any): Device {
             ? new Date(row.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
             : '—',
         batteryHealth: row.battery_health ?? 0,
-        conditionChecks: [],     // populated separately from verification_logs if needed
+        conditionChecks: [],
         specs: deviceSpecs,
         seller,
-        reviews: [],      // loaded separately
+        reviews: [],
         totalReviews: 0,
         averageRating: 0,
         shippingProvider: 'J&T Express',
@@ -117,7 +115,6 @@ function mapProduct(row: any): Device {
 // PUBLIC API
 // ══════════════════════════════════════════════════════════════════
 
-// Shared select string — keeps queries DRY
 const PRODUCT_SELECT = `
   *,
   seller:users!seller_id ( id, username, full_name, avatar_url, seller_rating,
@@ -144,48 +141,86 @@ export async function getFeaturedDevices(limit = 8): Promise<Device[]> {
     return (data ?? []).map(mapProduct)
 }
 
+// ─────────────────────────────────────────────────────────────────
+// LISTING FILTERS
+// Extended with `storage` and `ram` for Week 4 filtering feature.
+//
+// storage  → matches the `storage_capacity` column exactly
+//            e.g. "128GB", "256GB"
+//
+// ram      → partial match against specs->>'ram' (JSONB text extract)
+//            e.g. "8GB" matches { "ram": "8GB" } or { "ram": "8GB LPDDR5" }
+// ─────────────────────────────────────────────────────────────────
 export interface ListingFilters {
-    category?: string   // slug
-    brand?: string   // slug
-    condition?: string
+    category?: string       // category slug
+    brand?: string          // brand slug
+    condition?: string      // like_new | excellent | good | fair
     minPrice?: number
     maxPrice?: number
-    search?: string
+    search?: string         // searches title via ilike
     sortBy?: 'newest' | 'price_asc' | 'price_desc' | 'popular'
     page?: number
     limit?: number
+    // ── Week 4: new spec filters ──────────────────────────────────
+    storage?: string        // e.g. "128GB" — maps to storage_capacity column
+    ram?: string            // e.g. "8GB"   — maps to specs->>'ram' JSONB field
 }
 
 /** Paginated product listing with filters */
-export async function getDevices(filters: ListingFilters = {}): Promise<{ devices: Device[]; total: number }> {
-    const { category, brand, condition, minPrice, maxPrice, search, sortBy = 'newest', page = 1, limit = 20 } = filters
+export async function getDevices(
+    filters: ListingFilters = {}
+): Promise<{ devices: Device[]; total: number }> {
+    const {
+        category, brand, condition,
+        minPrice, maxPrice, search,
+        sortBy = 'newest', page = 1, limit = 20,
+        storage, ram,
+    } = filters
 
     let query = supabase
         .from('products')
         .select(PRODUCT_SELECT, { count: 'exact' })
         .eq('status', 'active')
 
+    // ── Standard column filters ───────────────────────────────────
     if (condition) query = query.eq('condition', condition)
-    if (minPrice) query = query.gte('price', minPrice)
-    if (maxPrice) query = query.lte('price', maxPrice)
-    if (search) query = query.ilike('title', `%${search}%`)
+    if (minPrice)  query = query.gte('price', minPrice)
+    if (maxPrice)  query = query.lte('price', maxPrice)
 
+    // Full-text search on title (case-insensitive)
+    if (search)    query = query.ilike('title', `%${search}%`)
+
+    // ── Exact match on storage_capacity column ────────────────────
+    // storage_capacity stores values like "128GB", "256GB", "1TB"
+    if (storage)   query = query.eq('storage_capacity', storage)
+
+    // ── JSONB specs filter for RAM ────────────────────────────────
+    // specs column is JSONB: { "ram": "8GB", "display": "6.1-inch", ... }
+    // PostgREST's ->> operator extracts the value as text for comparison.
+    // We use ilike so "8GB" matches "8GB LPDDR5" or just "8GB".
+    if (ram)       query = query.filter('specs->>ram', 'ilike', `%${ram}%`)
+
+    // ── Join-based filters (need sub-query to resolve slug → id) ─
     if (category) {
-        const { data: cat } = await supabase.from('categories').select('id').eq('slug', category).single()
+        const { data: cat } = await supabase
+            .from('categories').select('id').eq('slug', category).single()
         if (cat) query = query.eq('category_id', cat.id)
     }
     if (brand) {
-        const { data: b } = await supabase.from('brands').select('id').eq('slug', brand).single()
+        const { data: b } = await supabase
+            .from('brands').select('id').eq('slug', brand).single()
         if (b) query = query.eq('brand_id', b.id)
     }
 
+    // ── Sort ──────────────────────────────────────────────────────
     switch (sortBy) {
-        case 'price_asc': query = query.order('price', { ascending: true }); break
+        case 'price_asc':  query = query.order('price', { ascending: true });  break
         case 'price_desc': query = query.order('price', { ascending: false }); break
-        case 'popular': query = query.order('view_count', { ascending: false }); break
-        default: query = query.order('created_at', { ascending: false })
+        case 'popular':    query = query.order('view_count', { ascending: false }); break
+        default:           query = query.order('created_at', { ascending: false })
     }
 
+    // ── Pagination ────────────────────────────────────────────────
     const from = (page - 1) * limit
     const { data, error, count } = await query.range(from, from + limit - 1)
 
@@ -210,14 +245,20 @@ export async function getDeviceById(id: string): Promise<Device | null> {
         return null
     }
 
-    // Increment view count (fire-and-forget, don't await)
-    supabase.from('products').update({ view_count: (data.view_count ?? 0) + 1 }).eq('id', id).then(() => { })
+    supabase.from('products')
+        .update({ view_count: (data.view_count ?? 0) + 1 })
+        .eq('id', id)
+        .then(() => { })
 
     return mapProduct(data)
 }
 
 /** Similar devices (same category, different id) */
-export async function getSimilarDevices(categoryId: string, excludeId: string, limit = 4): Promise<Device[]> {
+export async function getSimilarDevices(
+    categoryId: string,
+    excludeId: string,
+    limit = 4
+): Promise<Device[]> {
     const { data, error } = await supabase
         .from('products')
         .select(PRODUCT_SELECT)
