@@ -2,13 +2,6 @@
 
 // ============================================
 // NAVBAR — Shared across all pages
-//
-// Week 4 upgrade:
-//  • SearchBar with autocomplete extracted into
-//    its own component (SearchBar.tsx)
-//  • "Browse" → category megamenu on hover
-//  • Avatar → user dropdown on click
-//  • Notification bell with unread dot
 // ============================================
 
 import Link from "next/link";
@@ -25,14 +18,17 @@ import {
 } from '@heroicons/react/24/outline';
 import SearchBar from "@/components/layout/SearchBar";
 
-// ── Category megamenu data ────────────────────────────────────────
+// ── Category megamenu ─────────────────────────────────────────────
+// Links now point to /categories/[slug] for the landing pages.
+// The listing page (/devices?category=X) is still reachable via
+// "View all devices →" inside the megamenu.
 const CATEGORIES = [
-    { icon: '📱', label: 'Smartphones', href: '/devices?category=smartphones', desc: '1,200+ listings' },
-    { icon: '💻', label: 'Laptops',     href: '/devices?category=laptops',     desc: '340+ listings' },
-    { icon: '⬛', label: 'Tablets',     href: '/devices?category=tablets',     desc: '180+ listings' },
-    { icon: '⌚', label: 'Smartwatches',href: '/devices?category=watches',     desc: '95+ listings'  },
-    { icon: '🎧', label: 'Audio',       href: '/devices?category=audio',       desc: '210+ listings' },
-    { icon: '🖥️', label: 'Desktops',   href: '/devices?category=desktops',    desc: '60+ listings'  },
+    { icon: '📱', label: 'Smartphones', href: '/categories/smartphones', desc: '1,200+ listings' },
+    { icon: '💻', label: 'Laptops',     href: '/categories/laptops',     desc: '340+ listings'  },
+    { icon: '⬛', label: 'Tablets',     href: '/categories/tablets',     desc: '180+ listings'  },
+    { icon: '⌚', label: 'Smartwatches',href: '/categories/watches',     desc: '95+ listings'   },
+    { icon: '🎧', label: 'Audio',       href: '/categories/audio',       desc: '210+ listings'  },
+    { icon: '🖥️', label: 'Desktops',   href: '/categories/desktops',    desc: '60+ listings'   },
 ]
 
 // ── User menu items ───────────────────────────────────────────────
@@ -48,7 +44,6 @@ export default function Navbar() {
     const [userMenuOpen, setUserMenuOpen] = useState(false)
     const userMenuRef = useRef<HTMLDivElement>(null)
 
-    // Close user dropdown on outside click
     useEffect(() => {
         function onMouseDown(e: MouseEvent) {
             if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
@@ -90,7 +85,7 @@ export default function Navbar() {
                                 duration-200 group-hover:rotate-180" />
                         </button>
 
-                        {/* Megamenu panel — CSS hover, no JS needed */}
+                        {/* Megamenu panel */}
                         <div className="absolute top-[calc(100%+8px)] left-1/2 -translate-x-1/2
                             w-[400px] bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-50
                             opacity-0 invisible translate-y-2 pointer-events-none
@@ -98,7 +93,6 @@ export default function Navbar() {
                             group-hover:pointer-events-auto
                             transition-all duration-200 ease-out">
 
-                            {/* Caret arrow */}
                             <div className="absolute -top-[7px] left-1/2 -translate-x-1/2
                                 w-3.5 h-3.5 bg-white border-l border-t border-gray-100 rotate-45" />
 
@@ -150,7 +144,6 @@ export default function Navbar() {
                             transition-colors ml-1"
                         aria-label="Notifications">
                         <BellIcon className="w-[18px] h-[18px] text-gray-500" />
-                        {/* Unread dot */}
                         <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500
                             rounded-full border-2 border-white" />
                     </button>
@@ -189,13 +182,11 @@ export default function Navbar() {
                                 duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
                         </button>
 
-                        {/* User dropdown panel */}
                         {userMenuOpen && (
                             <div className="absolute top-[calc(100%+8px)] right-0 w-52
                                 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50
                                 animate-[fadeDown_.15s_ease_both]">
 
-                                {/* User info */}
                                 <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
                                     <div className="w-9 h-9 rounded-full bg-gradient-to-br
                                         from-teal-600 to-emerald-500 flex items-center justify-center
@@ -210,7 +201,6 @@ export default function Navbar() {
                                     </div>
                                 </div>
 
-                                {/* Menu links */}
                                 <div className="py-1.5">
                                     {USER_MENU.map(({ icon: Icon, label, href }) => (
                                         <Link key={label} href={href}
@@ -224,7 +214,6 @@ export default function Navbar() {
                                     ))}
                                 </div>
 
-                                {/* Sign out */}
                                 <div className="border-t border-gray-100 pt-1.5 pb-1">
                                     <button
                                         onClick={() => setUserMenuOpen(false)}

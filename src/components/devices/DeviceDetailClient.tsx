@@ -17,7 +17,6 @@ import {
     FlagIcon,
     CheckCircleIcon,
     MagnifyingGlassPlusIcon,
-    ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
 
@@ -25,8 +24,9 @@ import { Device, CheckStatus } from '@/types/device';
 import DeviceCard from '@/components/devices/DeviceCard';
 import RatingStars from '@/components/layout/RatingStars';
 import Footer from '@/components/layout/Footer';
+import Breadcrumb from '@/components/layout/Breadcrumb'; // ← NEW dynamic breadcrumb
 
-// ── Check dot colors ──────────────────────
+// ── Check dot colors ──────────────────────────────────────────────
 const CHECK_DOT: Record<CheckStatus, string> = {
     ok: 'bg-emerald-500',
     warn: 'bg-amber-400',
@@ -46,32 +46,34 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
     const currentPrice = device.storagePrices[activeStorage] ?? device.price;
     const discount = Math.round((1 - currentPrice / device.originalPrice) * 100);
 
-    /** Show a brief toast notification */
     function showToast(msg: string) {
         setToast(msg);
         setTimeout(() => setToast(null), 2800);
     }
 
+    // ── Build dynamic breadcrumb items from real device data ──────
+    // Falls back gracefully: if slugs are missing, render as plain
+    // text without a link rather than a broken URL.
+    const breadcrumbItems = [
+        device.categorySlug
+            ? { label: device.category, href: `/categories/${device.categorySlug}` }
+            : { label: device.category },
+        device.brandSlug && device.categorySlug
+            ? { label: device.brand, href: `/categories/${device.categorySlug}/${device.brandSlug}` }
+            : { label: device.brand },
+        { label: `${device.model} ${device.storage}` },  // current page — no href
+    ];
+
     return (
         <div className="min-h-screen bg-[#F4F2EE]">
 
             {/* ==================== BREADCRUMB ==================== */}
+            {/* Now dynamic — driven by device.categorySlug + device.brandSlug */}
             <div className="max-w-[1160px] mx-auto px-6">
-                <nav className="flex items-center gap-1.5 pt-4 pb-0 text-[12px] text-gray-400">
-                    {[
-                        { label: 'Home', href: '/' },
-                        { label: 'Smartphones', href: '/devices?category=smartphones' },
-                        { label: 'Apple', href: '/devices?brand=apple' },
-                    ].map(({ label, href }) => (
-                        <span key={label} className="flex items-center gap-1.5">
-                            <Link href={href} className="hover:text-teal-700 transition-colors">{label}</Link>
-                            <ChevronRightIcon className="w-3 h-3" />
-                        </span>
-                    ))}
-                    <span className="text-gray-600 font-medium">
-                        {device.model} {device.storage}
-                    </span>
-                </nav>
+                <Breadcrumb
+                    items={breadcrumbItems}
+                    className="pt-4 pb-0"
+                />
 
                 {/* ==================== MAIN GRID ==================== */}
                 <div className="grid grid-cols-[1fr_400px] gap-8 py-6 pb-16 items-start">
@@ -87,7 +89,7 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                                     <button
                                         key={i}
                                         onClick={() => setActiveThumb(i)}
-                                        className={`w-[70px] h-[70px] rounded-xl bg-white border-2 overflow-hidden 
+                                        className={`w-[70px] h-[70px] rounded-xl bg-white border-2 overflow-hidden
                                 transition-all duration-150
                                 ${activeThumb === i
                                                 ? 'border-teal-600 shadow-md'
@@ -97,7 +99,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                                             className="w-full h-full object-contain p-1" unoptimized />
                                     </button>
                                 ))}
-                                {/* "+N more" placeholder */}
                                 {device.images.length < 4 && (
                                     <div className="w-[70px] h-[70px] rounded-xl bg-white border-2 border-gray-200
                                   flex items-center justify-center text-gray-400 text-xs font-mono">
@@ -109,7 +110,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                             {/* Main image */}
                             <div className="relative flex-1 aspect-square rounded-3xl bg-white border border-gray-100
                               shadow-md flex items-center justify-center overflow-hidden group">
-                                {/* Verified badge */}
                                 {device.isVerified && (
                                     <span className="absolute top-4 left-4 z-10 bg-emerald-500 text-white
                                    text-[11px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5
@@ -126,7 +126,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                                     className="w-[75%] h-[75%] object-contain group-hover:scale-105 transition-transform duration-350"
                                     unoptimized
                                 />
-                                {/* Zoom button */}
                                 <button className="absolute bottom-4 right-4 w-9 h-9 bg-white/80 backdrop-blur-sm
                                    rounded-lg border border-gray-200 flex items-center justify-center
                                    hover:bg-white hover:shadow-sm transition-all"
@@ -150,9 +149,7 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                             </div>
 
                             <div className="p-6">
-                                {/* Grade + description */}
                                 <div className="flex items-center gap-4 mb-5">
-                                    {/* Circular grade indicator */}
                                     <div className="relative w-16 h-16 shrink-0">
                                         <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
                                             <circle cx="32" cy="32" r="28" fill="none"
@@ -177,7 +174,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                                     </div>
                                 </div>
 
-                                {/* Check items grid */}
                                 <div className="grid grid-cols-2 gap-2.5">
                                     {device.conditionChecks.map((check, i) => (
                                         <div key={i}
@@ -207,7 +203,7 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                                 <tbody>
                                     {device.specs.map((spec, i) => (
                                         <tr key={i}
-                                            className={`border-b border-gray-50 last:border-b-0 
+                                            className={`border-b border-gray-50 last:border-b-0
                                   ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
                                             <td className="px-6 py-3 text-[12px] font-medium text-gray-400
                                      font-mono tracking-wide w-[36%]">
@@ -242,7 +238,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                             </div>
 
                             <div className="p-6">
-                                {/* Rating summary */}
                                 <div className="flex items-center gap-6 mb-6 pb-6 border-b border-gray-100">
                                     <div>
                                         <div className="text-4xl font-bold text-gray-900 leading-none mb-1">
@@ -252,7 +247,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                                         <p className="text-xs text-gray-400 mt-1">{device.totalReviews} reviews</p>
                                     </div>
 
-                                    {/* Bar chart */}
                                     <div className="flex-1 flex flex-col gap-1.5">
                                         {[
                                             { star: 5, count: 32, width: '85%' },
@@ -275,13 +269,12 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                                     </div>
                                 </div>
 
-                                {/* Individual reviews */}
                                 <div className="flex flex-col divide-y divide-gray-50">
                                     {device.reviews.map((review) => (
                                         <div key={review.id} className="py-4 first:pt-0">
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2">
-                                                    <div className={`w-8 h-8 rounded-full ${review.avatarColor} 
+                                                    <div className={`w-8 h-8 rounded-full ${review.avatarColor}
                                           flex items-center justify-center text-white text-xs font-bold`}>
                                                         {review.reviewerInitials}
                                                     </div>
@@ -303,7 +296,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                             </div>
                         </div>
                     </div>
-                    {/* ── END LEFT COLUMN ── */}
 
                     {/* ===== RIGHT COLUMN (STICKY) ===== */}
                     <div className="flex flex-col gap-4 sticky top-[78px]">
@@ -311,7 +303,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                         {/* ── BUY CARD ── */}
                         <div className="bg-white rounded-2xl border border-gray-100 shadow-md p-7
                             animate-[fadeUp_.5s_ease_both_.1s]">
-                            {/* Title */}
                             <h1 className="text-[15px] font-semibold text-gray-900 leading-snug mb-0.5">
                                 {device.fullName}
                             </h1>
@@ -319,7 +310,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                                 Grade {device.grade} · {activeStorage} · Unlocked · IMEI Clean
                             </p>
 
-                            {/* Price */}
                             <div className="flex items-baseline gap-2.5 mb-1.5">
                                 <span className="text-[32px] font-bold text-gray-900 leading-none tracking-tight">
                                     ${currentPrice}
@@ -335,7 +325,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                                 Free shipping · Arrives in {device.shippingDays}
                             </p>
 
-                            {/* Escrow banner */}
                             <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-100
                               rounded-xl p-3.5 mb-5">
                                 <ShieldCheckIcon className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
@@ -349,7 +338,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                                 </div>
                             </div>
 
-                            {/* Storage selector */}
                             <p className="text-xs font-semibold text-gray-600 mb-2">Storage</p>
                             <div className="flex gap-2 mb-5">
                                 {device.availableStorage.map((opt) => (
@@ -366,7 +354,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                                 ))}
                             </div>
 
-                            {/* CTA — Buy Now */}
                             <button
                                 onClick={() => showToast('Proceeding to checkout…')}
                                 className="w-full h-[52px] bg-teal-800 hover:bg-teal-700 text-white font-bold
@@ -380,7 +367,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                                 Buy Now — ${currentPrice}
                             </button>
 
-                            {/* CTA — Make Offer */}
                             <button
                                 onClick={() => showToast('Offer sent to seller!')}
                                 className="w-full h-12 border-2 border-teal-800 text-teal-800 font-semibold
@@ -391,7 +377,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                                 Make an Offer
                             </button>
 
-                            {/* Secondary actions row */}
                             <div className="grid grid-cols-3 gap-2 mt-3">
                                 {[
                                     { label: 'Watchlist', icon: HeartIcon, action: () => showToast('Added to Watchlist!') },
@@ -411,7 +396,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                                 ))}
                             </div>
 
-                            {/* Shipping info */}
                             <div className="mt-5 flex flex-col gap-2">
                                 {[
                                     { icon: TruckIcon, text: `Free shipping via ${device.shippingProvider}` },
@@ -430,7 +414,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6
                             animate-[fadeUp_.5s_ease_both_.2s]">
                             <div className="flex items-center gap-3.5 mb-4">
-                                {/* Avatar */}
                                 <div className={`w-13 h-13 rounded-full bg-gradient-to-br ${device.seller.avatarColor}
                                   flex items-center justify-center text-white font-bold text-base shrink-0
                                   w-[52px] h-[52px]`}>
@@ -455,15 +438,13 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                                 </div>
                             </div>
 
-                            {/* Stats */}
                             <div className="grid grid-cols-3 gap-2 mb-4">
                                 {[
                                     { val: device.seller.rating, label: 'Rating' },
                                     { val: device.seller.totalSales, label: 'Sales' },
                                     { val: device.seller.responseTime, label: 'Response' },
                                 ].map(({ val, label }) => (
-                                    <div key={label}
-                                        className="text-center py-3 bg-gray-50 rounded-xl">
+                                    <div key={label} className="text-center py-3 bg-gray-50 rounded-xl">
                                         <p className="text-[17px] font-bold text-gray-900">{val}</p>
                                         <p className="text-[10px] text-gray-400 mt-0.5">{label}</p>
                                     </div>
@@ -509,7 +490,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                             </div>
                         </div>
                     </div>
-                    {/* ── END RIGHT COLUMN ── */}
                 </div>
 
                 {/* ==================== SIMILAR DEVICES ==================== */}
@@ -527,8 +507,6 @@ export default function DetailPage({ device, similarDevices }: DetailPageProps) 
                 )}
             </div>
 
-            {/* ==================== FOOTER ==================== */}
-            {/* ✅ Using shared <Footer /> — edit Footer.tsx to change this on all pages */}
             <Footer />
 
             {/* ==================== TOAST ==================== */}

@@ -1,3 +1,4 @@
+// src/types/device.ts
 // ============================================
 // TYPES — Go2Hand Device Marketplace
 // ============================================
@@ -43,6 +44,12 @@ export interface Review {
 export interface Device {
     id: string;
     brand: string;
+    /**
+     * URL slug for the brand (e.g. "apple", "samsung").
+     * Populated from brands.slug in Supabase.
+     * Used to build breadcrumb links: /categories/[categorySlug]/[brandSlug]
+     */
+    brandSlug: string;
     model: string;
     fullName: string;
     storage: string;
@@ -69,4 +76,10 @@ export interface Device {
     availableStorage: string[];
     storagePrices: Record<string, number>;
     category: string;
+    /**
+     * URL slug for the category (e.g. "smartphones", "laptops").
+     * Populated from categories.slug in Supabase.
+     * Used to build breadcrumb links: /categories/[categorySlug]
+     */
+    categorySlug: string;
 }

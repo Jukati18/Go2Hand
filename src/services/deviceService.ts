@@ -1,4 +1,4 @@
-// lib/deviceService.ts
+// src/services/deviceService.ts
 // ─────────────────────────────────────────────────────────────────
 // Fetches data from Supabase and maps it to the existing Device
 // type (src/types/device.ts) so all UI components stay unchanged.
@@ -80,6 +80,8 @@ function mapProduct(row: any): Device {
     return {
         id: row.id,
         brand: row.brand?.name ?? '—',
+        // ── NEW: map slug for breadcrumb links ──────────────────────
+        brandSlug: row.brand?.slug ?? '',
         model: row.device_model?.model_name ?? row.title ?? '—',
         fullName: row.title ?? '—',
         storage: storageVal,
@@ -108,6 +110,8 @@ function mapProduct(row: any): Device {
         availableStorage: [storageVal],
         storagePrices: { [storageVal]: Number(row.price) ?? 0 },
         category: row.category?.name ?? '—',
+        // ── NEW: map slug for breadcrumb links ──────────────────────
+        categorySlug: row.category?.slug ?? '',
     }
 }
 
@@ -143,13 +147,6 @@ export async function getFeaturedDevices(limit = 8): Promise<Device[]> {
 
 // ─────────────────────────────────────────────────────────────────
 // LISTING FILTERS
-// Extended with `storage` and `ram` for Week 4 filtering feature.
-//
-// storage  → matches the `storage_capacity` column exactly
-//            e.g. "128GB", "256GB"
-//
-// ram      → partial match against specs->>'ram' (JSONB text extract)
-//            e.g. "8GB" matches { "ram": "8GB" } or { "ram": "8GB LPDDR5" }
 // ─────────────────────────────────────────────────────────────────
 export interface ListingFilters {
     category?: string       // category slug
@@ -161,9 +158,8 @@ export interface ListingFilters {
     sortBy?: 'newest' | 'price_asc' | 'price_desc' | 'popular'
     page?: number
     limit?: number
-    // ── Week 4: new spec filters ──────────────────────────────────
-    storage?: string        // e.g. "128GB" — maps to storage_capacity column
-    ram?: string            // e.g. "8GB"   — maps to specs->>'ram' JSONB field
+    storage?: string        // e.g. "128GB"
+    ram?: string            // e.g. "8GB"
 }
 
 /** Paginated product listing with filters */
@@ -182,25 +178,13 @@ export async function getDevices(
         .select(PRODUCT_SELECT, { count: 'exact' })
         .eq('status', 'active')
 
-    // ── Standard column filters ───────────────────────────────────
     if (condition) query = query.eq('condition', condition)
     if (minPrice)  query = query.gte('price', minPrice)
     if (maxPrice)  query = query.lte('price', maxPrice)
-
-    // Full-text search on title (case-insensitive)
     if (search)    query = query.ilike('title', `%${search}%`)
-
-    // ── Exact match on storage_capacity column ────────────────────
-    // storage_capacity stores values like "128GB", "256GB", "1TB"
     if (storage)   query = query.eq('storage_capacity', storage)
-
-    // ── JSONB specs filter for RAM ────────────────────────────────
-    // specs column is JSONB: { "ram": "8GB", "display": "6.1-inch", ... }
-    // PostgREST's ->> operator extracts the value as text for comparison.
-    // We use ilike so "8GB" matches "8GB LPDDR5" or just "8GB".
     if (ram)       query = query.filter('specs->>ram', 'ilike', `%${ram}%`)
 
-    // ── Join-based filters (need sub-query to resolve slug → id) ─
     if (category) {
         const { data: cat } = await supabase
             .from('categories').select('id').eq('slug', category).single()
@@ -212,7 +196,6 @@ export async function getDevices(
         if (b) query = query.eq('brand_id', b.id)
     }
 
-    // ── Sort ──────────────────────────────────────────────────────
     switch (sortBy) {
         case 'price_asc':  query = query.order('price', { ascending: true });  break
         case 'price_desc': query = query.order('price', { ascending: false }); break
@@ -220,7 +203,6 @@ export async function getDevices(
         default:           query = query.order('created_at', { ascending: false })
     }
 
-    // ── Pagination ────────────────────────────────────────────────
     const from = (page - 1) * limit
     const { data, error, count } = await query.range(from, from + limit - 1)
 

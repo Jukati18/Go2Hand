@@ -10,16 +10,16 @@ import DeviceCard from '@/components/devices/DeviceCard';
 import { getFeaturedDevices } from '@/services/deviceService';
 import type { Device } from '@/types/device';
 
-// ── (unchanged) category pills ───────────────────────────────────
+// ──  category pills ───────────────────────────────────
 const CATEGORIES = [
-    { label: 'Smartphones', icon: '📱', href: '/devices?category=smartphones' },
-    { label: 'Laptops', icon: '💻', href: '/devices?category=laptops' },
-    { label: 'Tablets', icon: '⬛', href: '/devices?category=tablets' },
-    { label: 'Smartwatches', icon: '⌚', href: '/devices?category=watches' },
-    { label: 'Earbuds', icon: '🎧', href: '/devices?category=earbuds' },
+    { label: 'Smartphones', icon: '📱', href: '/categories/smartphones' },
+    { label: 'Laptops',     icon: '💻', href: '/categories/laptops'     },
+    { label: 'Tablets',     icon: '⬛', href: '/categories/tablets'     },
+    { label: 'Smartwatches',icon: '⌚', href: '/categories/watches'     },
+    { label: 'Earbuds',     icon: '🎧', href: '/categories/audio'       },
 ]
 
-// ── (unchanged) trust points array ──────────────────────────────
+// ──  trust points array ──────────────────────────────
 const TRUST_POINTS = [
     {
         icon: (<svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>),
