@@ -5,21 +5,20 @@ import { notFound } from 'next/navigation'
 import { getDeviceById, getSimilarDevices } from '@/services/deviceService'
 import DeviceDetailClient from '@/components/devices/DeviceDetailClient';
 import { supabase } from '@/lib/supabaseClient'
+import { isInWatchlist } from '@/actions/watchlist'
 
 interface Props {
-    // In Next.js 15+, params is a Promise — must be awaited
     params: Promise<{ id: string }>
 }
 
 export default async function DeviceDetailRoute({ params }: Props) {
-    // ✅ Await params before accessing .id
     const { id } = await params
 
-    // 1. Fetch main device from Supabase
+    // 1. Fetch main device
     const device = await getDeviceById(id)
     if (!device) notFound()
 
-    // 2. Resolve category_id to fetch similar devices
+    // 2. Fetch similar devices (same category)
     const { data: product } = await supabase
         .from('products')
         .select('category_id')
@@ -30,15 +29,21 @@ export default async function DeviceDetailRoute({ params }: Props) {
         ? await getSimilarDevices(product.category_id, id, 4)
         : []
 
-    // 3. DetailPage is the UNCHANGED UI component — just pass props
-    return <DeviceDetailClient device={device} similarDevices={similarDevices} />
+    // 3. Check if current user has this device in their watchlist.
+    //    isInWatchlist() returns false gracefully when not logged in.
+    const initialSaved = await isInWatchlist(id)
+
+    return (
+        <DeviceDetailClient
+            device={device}
+            similarDevices={similarDevices}
+            initialSaved={initialSaved}
+        />
+    )
 }
 
-// Optional: generate page titles for SEO
 export async function generateMetadata({ params }: Props) {
-    // ✅ Also await params here
     const { id } = await params
-
     const device = await getDeviceById(id)
     if (!device) return {}
     return {
