@@ -1,13 +1,9 @@
 'use client';
 
+// src/components/devices/DeviceDetailClient.tsx
 // ============================================
 // DETAIL PAGE — Device detail view
-//
-// Week 4 update:
-//  • "Watchlist" secondary action now uses <WatchlistButton>
-//    which calls actionToggleWatchlist() server action
-//  • isInWatchlist() is fetched server-side and passed
-//    as `initialSaved` prop for instant correct heart state
+// Week 5 update: "Buy Now" now navigates to /checkout/[id]
 // ============================================
 
 import { useState } from 'react';
@@ -32,7 +28,6 @@ import RatingStars from '@/components/layout/RatingStars';
 import Footer from '@/components/layout/Footer';
 import WatchlistButton from '@/components/watchlist/WatchlistButton';
 
-// ── Check dot colors ──────────────────────────────────────────────
 const CHECK_DOT: Record<CheckStatus, string> = {
     ok:   'bg-emerald-500',
     warn: 'bg-amber-400',
@@ -42,7 +37,6 @@ const CHECK_DOT: Record<CheckStatus, string> = {
 interface DetailPageProps {
     device: Device;
     similarDevices: Device[];
-    /** Pre-fetched from isInWatchlist() in the server component */
     initialSaved?: boolean;
 }
 
@@ -71,8 +65,18 @@ export default function DetailPage({
                 <nav className="flex items-center gap-1.5 pt-4 pb-0 text-[12px] text-gray-400">
                     {[
                         { label: 'Home', href: '/' },
-                        { label: 'Smartphones', href: '/devices?category=smartphones' },
-                        { label: 'Apple', href: '/devices?brand=apple' },
+                        {
+                            label: device.category || 'Devices',
+                            href: device.categorySlug
+                                ? `/categories/${device.categorySlug}`
+                                : '/devices',
+                        },
+                        {
+                            label: device.brand,
+                            href: device.brandSlug && device.categorySlug
+                                ? `/categories/${device.categorySlug}/${device.brandSlug}`
+                                : '/devices',
+                        },
                     ].map(({ label, href }) => (
                         <span key={label} className="flex items-center gap-1.5">
                             <Link href={href} className="hover:text-teal-700 transition-colors">
@@ -94,7 +98,6 @@ export default function DetailPage({
 
                         {/* ── IMAGE GALLERY ── */}
                         <div className="flex gap-4 animate-[fadeUp_.5s_ease_both_.05s]">
-                            {/* Thumbnails */}
                             <div className="flex flex-col gap-2.5">
                                 {device.images.map((src, i) => (
                                     <button
@@ -110,15 +113,8 @@ export default function DetailPage({
                                             className="w-full h-full object-contain p-1" unoptimized />
                                     </button>
                                 ))}
-                                {device.images.length < 4 && (
-                                    <div className="w-[70px] h-[70px] rounded-xl bg-white border-2 border-gray-200
-                                        flex items-center justify-center text-gray-400 text-xs font-mono">
-                                        +2
-                                    </div>
-                                )}
                             </div>
 
-                            {/* Main image */}
                             <div className="relative flex-1 aspect-square rounded-3xl bg-white border border-gray-100
                                 shadow-md flex items-center justify-center overflow-hidden group">
                                 {device.isVerified && (
@@ -132,8 +128,7 @@ export default function DetailPage({
                                 <Image
                                     src={device.images[activeThumb]}
                                     alt={device.fullName}
-                                    width={500}
-                                    height={500}
+                                    width={500} height={500}
                                     className="w-[75%] h-[75%] object-contain
                                         group-hover:scale-105 transition-transform duration-350"
                                     unoptimized
@@ -161,7 +156,6 @@ export default function DetailPage({
                                     Inspected · {device.inspectedDate}
                                 </span>
                             </div>
-
                             <div className="p-6">
                                 <div className="flex items-center gap-4 mb-5">
                                     <div className="relative w-16 h-16 shrink-0">
@@ -185,7 +179,6 @@ export default function DetailPage({
                                         </p>
                                     </div>
                                 </div>
-
                                 <div className="grid grid-cols-2 gap-2.5">
                                     {device.conditionChecks.map((check, i) => (
                                         <div key={i}
@@ -223,12 +216,6 @@ export default function DetailPage({
                                             <td className={`px-6 py-3 text-[13px] font-medium
                                                 ${spec.highlighted ? 'text-emerald-600 font-semibold' : 'text-gray-800'}`}>
                                                 {spec.value}
-                                                {spec.label === 'Storage' && (
-                                                    <span className="ml-2 text-[10px] font-bold bg-cyan-100 text-teal-700
-                                                        px-2 py-0.5 rounded">
-                                                        Selected
-                                                    </span>
-                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -265,7 +252,7 @@ export default function DetailPage({
                                             <div key={star} className="flex items-center gap-2 text-xs text-gray-400">
                                                 <span className="w-4 text-right">{star}★</span>
                                                 <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-amber-400 rounded-full transition-all duration-700"
+                                                    <div className="h-full bg-amber-400 rounded-full"
                                                         style={{ width }} />
                                                 </div>
                                                 <span className="w-3 text-right">{count}</span>
@@ -273,6 +260,11 @@ export default function DetailPage({
                                         ))}
                                     </div>
                                 </div>
+                                {device.reviews.length === 0 && (
+                                    <p className="text-sm text-gray-400 text-center py-4">
+                                        No reviews yet for this listing.
+                                    </p>
+                                )}
                                 <div className="flex flex-col divide-y divide-gray-50">
                                     {device.reviews.map((review) => (
                                         <div key={review.id} className="py-4 first:pt-0">
@@ -300,7 +292,6 @@ export default function DetailPage({
                             </div>
                         </div>
                     </div>
-                    {/* ── END LEFT COLUMN ── */}
 
                     {/* ===== RIGHT COLUMN (STICKY) ===== */}
                     <div className="flex flex-col gap-4 sticky top-[78px]">
@@ -361,9 +352,9 @@ export default function DetailPage({
                                 ))}
                             </div>
 
-                            {/* CTA — Buy Now */}
-                            <button
-                                onClick={() => showToast('Proceeding to checkout…')}
+                            {/* ── CTA: Buy Now → navigates to /checkout/[id] ── */}
+                            <Link
+                                href={`/checkout/${device.id}`}
                                 className="w-full h-[52px] bg-teal-800 hover:bg-teal-700 text-white font-bold
                                     rounded-xl flex items-center justify-center gap-2 text-[15px]
                                     transition-all hover:-translate-y-0.5 hover:shadow-lg mb-2.5"
@@ -373,7 +364,7 @@ export default function DetailPage({
                                     <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
                                 </svg>
                                 Buy Now — ${currentPrice}
-                            </button>
+                            </Link>
 
                             {/* CTA — Make Offer */}
                             <button
@@ -386,12 +377,7 @@ export default function DetailPage({
                                 Make an Offer
                             </button>
 
-                            {/* ── Secondary actions row ──
-                                Watchlist is now a real <WatchlistButton> pill.
-                                Share and Report remain as local toast stubs. */}
                             <div className="grid grid-cols-3 gap-2 mt-3">
-
-                                {/* ✅ REAL watchlist toggle */}
                                 <WatchlistButton
                                     deviceId={device.id}
                                     initialSaved={initialSaved}
@@ -399,8 +385,6 @@ export default function DetailPage({
                                     showToast={showToast}
                                     className="col-span-1"
                                 />
-
-                                {/* Share */}
                                 <button
                                     onClick={() => showToast('Link copied!')}
                                     className="h-10 bg-gray-50 hover:bg-gray-100 border border-gray-100
@@ -410,8 +394,6 @@ export default function DetailPage({
                                     <ShareIcon className="w-3.5 h-3.5" />
                                     Share
                                 </button>
-
-                                {/* Report */}
                                 <button
                                     onClick={() => showToast('Report submitted. Thank you.')}
                                     className="h-10 bg-gray-50 hover:bg-gray-100 border border-gray-100
@@ -423,7 +405,6 @@ export default function DetailPage({
                                 </button>
                             </div>
 
-                            {/* Shipping info */}
                             <div className="mt-5 flex flex-col gap-2">
                                 {[
                                     { icon: TruckIcon,       text: `Free shipping via ${device.shippingProvider}` },
@@ -517,7 +498,6 @@ export default function DetailPage({
                             </div>
                         </div>
                     </div>
-                    {/* ── END RIGHT COLUMN ── */}
                 </div>
 
                 {/* ==================== SIMILAR DEVICES ==================== */}
@@ -537,7 +517,6 @@ export default function DetailPage({
 
             <Footer />
 
-            {/* ==================== TOAST ==================== */}
             {toast && (
                 <div className="fixed bottom-7 right-7 z-50 bg-gray-900 text-white px-5 py-3.5
                     rounded-xl shadow-2xl flex items-center gap-3 text-sm font-medium

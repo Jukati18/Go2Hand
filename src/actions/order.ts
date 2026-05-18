@@ -1,15 +1,8 @@
 'use server'
 
+// src/actions/order.ts
 // ============================================
 // ORDER SERVER ACTIONS
-//
-// These run on the server (Next.js Server Actions).
-// Every action: 1) checks auth, 2) validates input,
-// 3) calls the write service, 4) revalidates cache.
-//
-// Usage in a client component:
-//   const result = await actionMarkShipped(orderId, trackingNum, provider)
-//   if (!result.success) showError(result.error)
 // ============================================
 
 import { revalidatePath } from 'next/cache'
@@ -25,16 +18,13 @@ import {
 } from '@/services/orderWriteService'
 import type { CreateOrderInput } from '@/types/order'
 
-// ── Standard result shape for all actions ────────────────────────
 type ActionResult = { success: boolean; error?: string; orderId?: string }
 
-// ── Get current authenticated user ID ────────────────────────────
 async function getCurrentUserId(): Promise<string | null> {
     const { data: { user } } = await supabase.auth.getUser()
     return user?.id ?? null
 }
 
-// ── Revalidate all pages that show order data ─────────────────────
 function revalidateOrderPages(orderId: string) {
     revalidatePath(`/orders/${orderId}`)
     revalidatePath('/dashboard/orders')
@@ -42,39 +32,30 @@ function revalidateOrderPages(orderId: string) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ACTION: CREATE ORDER
-// Called from the checkout page after Stripe payment succeeds.
+// CREATE ORDER (used for non-Stripe / test flows)
+// The primary Stripe checkout flow creates orders via /api/checkout.
 // ─────────────────────────────────────────────────────────────────
-export async function actionCreateOrder(
-    input: CreateOrderInput
-): Promise<ActionResult> {
+export async function actionCreateOrder(input: CreateOrderInput): Promise<ActionResult> {
     const userId = await getCurrentUserId()
-    if (!userId) {
-        return { success: false, error: 'You must be logged in to place an order' }
-    }
+    if (!userId) return { success: false, error: 'You must be logged in to place an order' }
 
-    // Prevent a seller from buying their own listing
     if (userId === input.sellerId) {
         return { success: false, error: 'You cannot purchase your own listing' }
     }
 
     try {
         const { id } = await createOrder(userId, input)
-
         revalidatePath('/devices')
         revalidatePath(`/devices/${input.productId}`)
         revalidatePath('/dashboard/orders')
-
         return { success: true, orderId: id }
-
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to create order'
-        return { success: false, error: message }
+        return { success: false, error: err instanceof Error ? err.message : 'Failed to create order' }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ACTION: MARK AS SHIPPED (seller)
+// MARK AS SHIPPED (seller)
 // ─────────────────────────────────────────────────────────────────
 export async function actionMarkShipped(
     orderId: string,
@@ -83,24 +64,19 @@ export async function actionMarkShipped(
 ): Promise<ActionResult> {
     const userId = await getCurrentUserId()
     if (!userId) return { success: false, error: 'You must be logged in' }
-
-    if (!trackingNumber.trim()) {
-        return { success: false, error: 'Tracking number is required' }
-    }
+    if (!trackingNumber.trim()) return { success: false, error: 'Tracking number is required' }
 
     try {
         await markOrderShipped(orderId, userId, trackingNumber, shippingProvider)
         revalidateOrderPages(orderId)
         return { success: true }
-
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to update shipment'
-        return { success: false, error: message }
+        return { success: false, error: err instanceof Error ? err.message : 'Failed to update shipment' }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ACTION: MARK AS RECEIVED (buyer — starts inspection window)
+// MARK AS RECEIVED (buyer)
 // ─────────────────────────────────────────────────────────────────
 export async function actionMarkReceived(orderId: string): Promise<ActionResult> {
     const userId = await getCurrentUserId()
@@ -110,41 +86,52 @@ export async function actionMarkReceived(orderId: string): Promise<ActionResult>
         await markOrderReceived(orderId, userId)
         revalidateOrderPages(orderId)
         return { success: true }
-
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to mark as received'
-        return { success: false, error: message }
+        return { success: false, error: err instanceof Error ? err.message : 'Failed to mark as received' }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ACTION: COMPLETE ORDER (buyer approves — releases escrow)
+// COMPLETE ORDER — Stripe capture + DB update
+//
+// Calls the /api/orders/[id]/release endpoint which:
+//   1. Calls stripe.paymentIntents.capture()  ← money moves
+//   2. Updates order status to 'completed'
 // ─────────────────────────────────────────────────────────────────
 export async function actionCompleteOrder(orderId: string): Promise<ActionResult> {
     const userId = await getCurrentUserId()
     if (!userId) return { success: false, error: 'You must be logged in' }
 
     try {
-        await completeOrder(orderId, userId)
+        // Call the release API route — it handles both Stripe capture + DB update
+        const res = await fetch(
+            `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/orders/${orderId}/release`,
+            {
+                method: 'POST',
+                headers: {
+                    // Forward the cookie so the API can verify the user session
+                    Cookie: (await import('next/headers')).cookies().toString(),
+                },
+            }
+        )
+
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? 'Release failed')
+
         revalidateOrderPages(orderId)
         return { success: true }
 
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to complete order'
-        return { success: false, error: message }
+        return { success: false, error: err instanceof Error ? err.message : 'Failed to complete order' }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ACTION: DISPUTE ORDER (buyer raises issue)
+// DISPUTE ORDER (buyer)
 // ─────────────────────────────────────────────────────────────────
-export async function actionDisputeOrder(
-    orderId: string,
-    reason: string
-): Promise<ActionResult> {
+export async function actionDisputeOrder(orderId: string, reason: string): Promise<ActionResult> {
     const userId = await getCurrentUserId()
     if (!userId) return { success: false, error: 'You must be logged in' }
-
     if (!reason.trim() || reason.trim().length < 10) {
         return { success: false, error: 'Please describe the issue in at least 10 characters' }
     }
@@ -153,49 +140,73 @@ export async function actionDisputeOrder(
         await disputeOrder(orderId, userId, reason)
         revalidateOrderPages(orderId)
         return { success: true }
-
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to open dispute'
-        return { success: false, error: message }
+        return { success: false, error: err instanceof Error ? err.message : 'Failed to open dispute' }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ACTION: CANCEL ORDER (buyer)
+// CANCEL ORDER (buyer — before shipping)
+// Also cancels the Stripe hold via the DB cancel flow.
 // ─────────────────────────────────────────────────────────────────
 export async function actionCancelOrder(orderId: string): Promise<ActionResult> {
     const userId = await getCurrentUserId()
     if (!userId) return { success: false, error: 'You must be logged in' }
 
     try {
+        // Fetch the stripe_payment_intent_id before cancelling
+        const { data: order } = await supabase
+            .from('orders')
+            .select('stripe_payment_intent_id, status')
+            .eq('id', orderId)
+            .single()
+
         await cancelOrder(orderId, userId)
+
+        // If there's an active Stripe PaymentIntent, cancel it to release the hold
+        if (order?.stripe_payment_intent_id && ['pending', 'paid'].includes(order.status ?? '')) {
+            try {
+                const { stripe } = await import('@/lib/stripe')
+                await stripe.paymentIntents.cancel(order.stripe_payment_intent_id)
+            } catch (stripeErr) {
+                console.error('[actionCancelOrder] Stripe cancel failed:', stripeErr)
+                // DB is already updated — log and continue
+            }
+        }
+
         revalidateOrderPages(orderId)
         return { success: true }
 
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to cancel order'
-        return { success: false, error: message }
+        return { success: false, error: err instanceof Error ? err.message : 'Failed to cancel order' }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ACTION: REFUND (admin only)
+// REFUND (admin only) — handled via /api/orders/[id]/refund
 // ─────────────────────────────────────────────────────────────────
 export async function actionRefundOrder(orderId: string): Promise<ActionResult> {
     const userId = await getCurrentUserId()
     if (!userId) return { success: false, error: 'You must be logged in' }
 
-    // TODO: verify this user has admin role from users table before proceeding
-    // const { data: profile } = await supabase.from('users').select('role').eq('id', userId).single()
-    // if (profile?.role !== 'admin') return { success: false, error: 'Unauthorized' }
-
     try {
-        await refundOrder(orderId)
+        const res = await fetch(
+            `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/orders/${orderId}/refund`,
+            {
+                method: 'POST',
+                headers: {
+                    Cookie: (await import('next/headers')).cookies().toString(),
+                },
+            }
+        )
+
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? 'Refund failed')
+
         revalidateOrderPages(orderId)
         return { success: true }
 
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to process refund'
-        return { success: false, error: message }
+        return { success: false, error: err instanceof Error ? err.message : 'Failed to process refund' }
     }
 }
