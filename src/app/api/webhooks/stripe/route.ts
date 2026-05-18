@@ -3,16 +3,11 @@
 // Stripe Webhook Handler
 //
 // Events handled:
-//  • payment_intent.succeeded   → upgrade order 'pending' → 'paid'
-//  • payment_intent.canceled    → mark order 'cancelled', restore listing
-//
-// IMPORTANT: Stripe sends the raw request body for signature
-// verification. In Next.js App Router, use request.text() to get it.
-//
-// Local testing:
-//   stripe login
-//   stripe listen --forward-to localhost:3000/api/webhooks/stripe
-//   (copy the whsec_... secret into .env.local as STRIPE_WEBHOOK_SECRET)
+//  • payment_intent.succeeded        → order 'pending' → 'paid'
+//  • payment_intent.payment_failed   → order → 'cancelled', listing restored
+//  • payment_intent.canceled         → handles both intentional cancels AND
+//                                      Stripe's 7-day auto-cancel (edge case)
+//  • payment_intent.amount_capturable_updated → logged only
 // ─────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -21,12 +16,10 @@ import { confirmOrderPayment } from '@/services/orderWriteService'
 import { supabase } from '@/lib/supabaseClient'
 import Stripe from 'stripe'
 
-// Tell Next.js not to pre-parse the body — we need the raw bytes
-// for Stripe's signature verification.
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
-    const body = await request.text() // raw body (required for HMAC verification)
+    const body = await request.text()
     const signature = request.headers.get('stripe-signature')
 
     if (!signature) {
@@ -34,12 +27,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (!process.env.STRIPE_WEBHOOK_SECRET) {
-        console.error('STRIPE_WEBHOOK_SECRET is not set')
+        console.error('[Webhook] STRIPE_WEBHOOK_SECRET is not set')
         return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 })
     }
 
-    // ── Verify signature ─────────────────────────────────────────
-    // This proves the request really came from Stripe (not a fake POST).
     let event: Stripe.Event
     try {
         event = stripe.webhooks.constructEvent(
@@ -53,27 +44,22 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: msg }, { status: 400 })
     }
 
-    // ── Handle events ────────────────────────────────────────────
     try {
         switch (event.type) {
 
-            // ── Payment confirmed → upgrade pending order to paid ──
+            // ── Payment held → upgrade pending order to 'paid' ────
             case 'payment_intent.succeeded': {
                 const pi = event.data.object as Stripe.PaymentIntent
                 console.log('[Webhook] payment_intent.succeeded', pi.id)
-
-                // confirmOrderPayment finds the order by stripe_payment_intent_id
-                // and updates status pending → paid, then marks product as sold.
                 await confirmOrderPayment(pi.id)
                 break
             }
 
-            // ── Payment failed → clean up the pending order ────────
+            // ── Payment failed → cancel order, restore listing ────
             case 'payment_intent.payment_failed': {
                 const pi = event.data.object as Stripe.PaymentIntent
                 console.log('[Webhook] payment_intent.payment_failed', pi.id)
 
-                // Mark order cancelled and reactivate the listing
                 await supabase
                     .from('orders')
                     .update({
@@ -84,37 +70,65 @@ export async function POST(request: NextRequest) {
                     .eq('stripe_payment_intent_id', pi.id)
                     .eq('status', 'pending')
 
-                // Reactivate the product listing so someone else can buy it
-                const metadata = pi.metadata as { device_id?: string }
-                if (metadata.device_id) {
+                const meta = pi.metadata as { device_id?: string }
+                if (meta.device_id) {
                     await supabase
                         .from('products')
                         .update({ status: 'active', updated_at: new Date().toISOString() })
-                        .eq('id', metadata.device_id)
+                        .eq('id', meta.device_id)
                 }
                 break
             }
 
-            // ── PaymentIntent canceled (dispute resolved as refund) ──
+            // ── PaymentIntent cancelled ───────────────────────────
+            // Two scenarios:
+            //   A) We cancelled intentionally (dispute/refund/buyer cancel)
+            //      → order is already 'cancelled' or 'refunded' → do nothing
+            //   B) Stripe auto-cancelled (7-day capture window expired)
+            //      → order is still 'in_inspection' or 'paid' → mark refunded
             case 'payment_intent.canceled': {
                 const pi = event.data.object as Stripe.PaymentIntent
                 console.log('[Webhook] payment_intent.canceled', pi.id)
-                // Order is already 'refunded' — nothing extra needed here.
+
+                // Only act if order is still in an active state (scenario B)
+                const { data: order } = await supabase
+                    .from('orders')
+                    .select('id, product_id, status')
+                    .eq('stripe_payment_intent_id', pi.id)
+                    .in('status', ['paid', 'shipped', 'in_inspection'])
+                    .maybeSingle()
+
+                if (order) {
+                    // Stripe auto-cancelled — buyer gets money back automatically
+                    const now = new Date().toISOString()
+                    console.warn(
+                        `[Webhook] Stripe auto-cancelled PI for order ${order.id}`,
+                        `(was '${order.status}') — 7-day window likely expired`
+                    )
+
+                    await supabase
+                        .from('orders')
+                        .update({ status: 'refunded', refunded_at: now, updated_at: now })
+                        .eq('id', order.id)
+
+                    // Restore the listing so it can be sold again
+                    await supabase
+                        .from('products')
+                        .update({ status: 'active', updated_at: now })
+                        .eq('id', order.product_id)
+                }
                 break
             }
 
             default:
-                // Unknown events are not errors — just ignore them.
                 console.log('[Webhook] Unhandled event type:', event.type)
         }
 
-        // Always return 200 so Stripe doesn't retry the event.
         return NextResponse.json({ received: true })
 
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Webhook handler error'
         console.error('[Webhook] Handler error:', message)
-        // Return 500 so Stripe retries — useful if DB is temporarily down.
         return NextResponse.json({ error: message }, { status: 500 })
     }
 }
