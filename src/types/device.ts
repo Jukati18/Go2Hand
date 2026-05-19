@@ -1,11 +1,15 @@
 // src/types/device.ts
 // ============================================
 // TYPES — Go2Hand Device Marketplace
+//
+// Week 5 update: Review interface extended with
+// overallRating, sellerRating, accuracyRating, title
+// to match the DisplayReview shape from review.ts.
 // ============================================
 
 export type DeviceCondition = 'A+' | 'A' | 'B' | 'C';
-export type ConditionLabel = 'Excellent' | 'Good' | 'Fair';
-export type CheckStatus = 'ok' | 'warn' | 'bad';
+export type ConditionLabel  = 'Excellent' | 'Good' | 'Fair';
+export type CheckStatus     = 'ok' | 'warn' | 'bad';
 
 export interface ConditionCheck {
     label: string;
@@ -15,7 +19,7 @@ export interface ConditionCheck {
 export interface DeviceSpec {
     label: string;
     value: string;
-    highlighted?: boolean; // e.g. "Clean — Not Blacklisted"
+    highlighted?: boolean;
 }
 
 export interface Seller {
@@ -31,14 +35,31 @@ export interface Seller {
     responseTime: string;
 }
 
+// ─────────────────────────────────────────────────────────────────
+// REVIEW — matches DisplayReview from review.ts
+//
+// Three rating dimensions:
+//  • overallRating  — headline experience (1–5)
+//  • sellerRating   — communication, honesty, speed (1–5)
+//  • accuracyRating — did device match listing? (1–5)
+// ─────────────────────────────────────────────────────────────────
 export interface Review {
     id: string;
     reviewerName: string;
     reviewerInitials: string;
     avatarColor: string;
-    rating: number;
-    date: string;
+    /** Headline overall rating (1–5) */
+    overallRating: number;
+    /** Seller communication/honesty/speed (1–5) */
+    sellerRating: number;
+    /** Device accuracy vs listing (1–5) */
+    accuracyRating: number;
+    /** Optional bold title line */
+    title: string;
+    /** Full review body text */
     text: string;
+    /** Formatted date string e.g. "May 12, 2025" */
+    date: string;
 }
 
 export interface Device {
@@ -46,7 +67,6 @@ export interface Device {
     brand: string;
     /**
      * URL slug for the brand (e.g. "apple", "samsung").
-     * Populated from brands.slug in Supabase.
      * Used to build breadcrumb links: /categories/[categorySlug]/[brandSlug]
      */
     brandSlug: string;
@@ -78,7 +98,6 @@ export interface Device {
     category: string;
     /**
      * URL slug for the category (e.g. "smartphones", "laptops").
-     * Populated from categories.slug in Supabase.
      * Used to build breadcrumb links: /categories/[categorySlug]
      */
     categorySlug: string;

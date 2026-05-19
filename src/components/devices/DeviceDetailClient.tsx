@@ -2,8 +2,12 @@
 
 // src/components/devices/DeviceDetailClient.tsx
 // ============================================
-// DETAIL PAGE — Device detail view
-// Week 5 update: "Buy Now" now navigates to /checkout/[id]
+// DEVICE DETAIL PAGE
+//
+// Week 5 update: Reviews section replaced with
+// the real <ReviewList> component. Stats are
+// computed client-side from device.reviews so
+// no extra prop is needed on Device.
 // ============================================
 
 import { useState } from 'react';
@@ -23,16 +27,53 @@ import {
 import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
 
 import { Device, CheckStatus } from '@/types/device';
+import type { ReviewStats } from '@/types/review';
 import DeviceCard from '@/components/devices/DeviceCard';
 import RatingStars from '@/components/layout/RatingStars';
 import Footer from '@/components/layout/Footer';
 import WatchlistButton from '@/components/watchlist/WatchlistButton';
+import ReviewList from '@/components/reviews/ReviewList';
 
 const CHECK_DOT: Record<CheckStatus, string> = {
     ok:   'bg-emerald-500',
     warn: 'bg-amber-400',
     bad:  'bg-red-500',
 };
+
+// ── Compute ReviewStats from the reviews array on the device ──────
+// Called once per render — cheap since review counts are small.
+function computeReviewStats(reviews: Device['reviews']): ReviewStats {
+    const total = reviews.length;
+    const empty: ReviewStats = {
+        totalReviews: 0,
+        averageOverall: 0,
+        averageSeller: 0,
+        averageAccuracy: 0,
+        distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+    };
+    if (total === 0) return empty;
+
+    const dist: ReviewStats['distribution'] = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    let sumOverall = 0, sumSeller = 0, sumAccuracy = 0;
+
+    for (const r of reviews) {
+        sumOverall  += r.overallRating;
+        sumSeller   += r.sellerRating;
+        sumAccuracy += r.accuracyRating;
+        const star = Math.min(5, Math.max(1, Math.round(r.overallRating))) as 1 | 2 | 3 | 4 | 5;
+        dist[star]++;
+    }
+
+    const avg = (n: number) => Math.round((n / total) * 10) / 10;
+
+    return {
+        totalReviews: total,
+        averageOverall:  avg(sumOverall),
+        averageSeller:   avg(sumSeller),
+        averageAccuracy: avg(sumAccuracy),
+        distribution: dist,
+    };
+}
 
 interface DetailPageProps {
     device: Device;
@@ -45,12 +86,15 @@ export default function DetailPage({
     similarDevices,
     initialSaved = false,
 }: DetailPageProps) {
-    const [activeThumb, setActiveThumb]     = useState(0);
+    const [activeThumb,   setActiveThumb]   = useState(0);
     const [activeStorage, setActiveStorage] = useState(device.storage);
-    const [toast, setToast]                 = useState<string | null>(null);
+    const [toast,         setToast]         = useState<string | null>(null);
 
     const currentPrice = device.storagePrices[activeStorage] ?? device.price;
     const discount     = Math.round((1 - currentPrice / device.originalPrice) * 100);
+
+    // Compute stats once — used by ReviewList
+    const reviewStats = computeReviewStats(device.reviews);
 
     function showToast(msg: string) {
         setToast(msg);
@@ -115,12 +159,13 @@ export default function DetailPage({
                                 ))}
                             </div>
 
-                            <div className="relative flex-1 aspect-square rounded-3xl bg-white border border-gray-100
-                                shadow-md flex items-center justify-center overflow-hidden group">
+                            <div className="relative flex-1 aspect-square rounded-3xl bg-white border
+                                border-gray-100 shadow-md flex items-center justify-center
+                                overflow-hidden group">
                                 {device.isVerified && (
                                     <span className="absolute top-4 left-4 z-10 bg-emerald-500 text-white
-                                        text-[11px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5
-                                        animate-pulse">
+                                        text-[11px] font-bold px-3 py-1.5 rounded-full
+                                        flex items-center gap-1.5 animate-pulse">
                                         <CheckCircleSolid className="w-3.5 h-3.5" />
                                         VERIFIED
                                     </span>
@@ -134,9 +179,10 @@ export default function DetailPage({
                                     unoptimized
                                 />
                                 <button
-                                    className="absolute bottom-4 right-4 w-9 h-9 bg-white/80 backdrop-blur-sm
-                                        rounded-lg border border-gray-200 flex items-center justify-center
-                                        hover:bg-white hover:shadow-sm transition-all"
+                                    className="absolute bottom-4 right-4 w-9 h-9 bg-white/80
+                                        backdrop-blur-sm rounded-lg border border-gray-200
+                                        flex items-center justify-center hover:bg-white
+                                        hover:shadow-sm transition-all"
                                     aria-label="Zoom image"
                                 >
                                     <MagnifyingGlassPlusIcon className="w-4 h-4 text-gray-500" />
@@ -145,9 +191,10 @@ export default function DetailPage({
                         </div>
 
                         {/* ── CONDITION REPORT ── */}
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden
-                            animate-[fadeUp_.5s_ease_both_.15s]">
-                            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm
+                            overflow-hidden animate-[fadeUp_.5s_ease_both_.15s]">
+                            <div className="flex items-center justify-between px-6 py-4
+                                border-b border-gray-100">
                                 <h2 className="flex items-center gap-2 text-sm font-bold text-gray-900">
                                     <CheckCircleIcon className="w-4 h-4 text-teal-600" />
                                     Condition Report
@@ -160,13 +207,16 @@ export default function DetailPage({
                                 <div className="flex items-center gap-4 mb-5">
                                     <div className="relative w-16 h-16 shrink-0">
                                         <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
-                                            <circle cx="32" cy="32" r="28" fill="none" stroke="#E5E7EB" strokeWidth="6" />
-                                            <circle cx="32" cy="32" r="28" fill="none" stroke="#059669" strokeWidth="6"
+                                            <circle cx="32" cy="32" r="28" fill="none"
+                                                stroke="#E5E7EB" strokeWidth="6" />
+                                            <circle cx="32" cy="32" r="28" fill="none"
+                                                stroke="#059669" strokeWidth="6"
                                                 strokeDasharray={`${2 * Math.PI * 28 * 0.85} ${2 * Math.PI * 28}`}
                                                 strokeLinecap="round" />
                                         </svg>
-                                        <span className="absolute inset-0 flex items-center justify-center
-                                            font-mono text-lg font-semibold text-emerald-600">
+                                        <span className="absolute inset-0 flex items-center
+                                            justify-center font-mono text-lg font-semibold
+                                            text-emerald-600">
                                             {device.grade}
                                         </span>
                                     </div>
@@ -182,9 +232,10 @@ export default function DetailPage({
                                 <div className="grid grid-cols-2 gap-2.5">
                                     {device.conditionChecks.map((check, i) => (
                                         <div key={i}
-                                            className="flex items-center gap-2 text-[13px] text-gray-600
-                                                bg-gray-50 rounded-lg px-3 py-2.5">
-                                            <span className={`w-2 h-2 rounded-full shrink-0 ${CHECK_DOT[check.status]}`} />
+                                            className="flex items-center gap-2 text-[13px]
+                                                text-gray-600 bg-gray-50 rounded-lg px-3 py-2.5">
+                                            <span className={`w-2 h-2 rounded-full shrink-0
+                                                ${CHECK_DOT[check.status]}`} />
                                             {check.label}
                                         </div>
                                     ))}
@@ -193,15 +244,17 @@ export default function DetailPage({
                         </div>
 
                         {/* ── FULL SPECIFICATIONS ── */}
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden
-                            animate-[fadeUp_.5s_ease_both_.25s]">
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm
+                            overflow-hidden animate-[fadeUp_.5s_ease_both_.25s]">
                             <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-100">
-                                <svg className="w-4 h-4 text-teal-600" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" strokeWidth="2">
+                                <svg className="w-4 h-4 text-teal-600" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" strokeWidth="2">
                                     <rect x="3" y="3" width="18" height="18" rx="2" />
                                     <path d="M3 9h18M9 21V9" />
                                 </svg>
-                                <h2 className="text-sm font-bold text-gray-900">Full Specifications</h2>
+                                <h2 className="text-sm font-bold text-gray-900">
+                                    Full Specifications
+                                </h2>
                             </div>
                             <table className="w-full">
                                 <tbody>
@@ -209,12 +262,14 @@ export default function DetailPage({
                                         <tr key={i}
                                             className={`border-b border-gray-50 last:border-b-0
                                                 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
-                                            <td className="px-6 py-3 text-[12px] font-medium text-gray-400
-                                                font-mono tracking-wide w-[36%]">
+                                            <td className="px-6 py-3 text-[12px] font-medium
+                                                text-gray-400 font-mono tracking-wide w-[36%]">
                                                 {spec.label}
                                             </td>
                                             <td className={`px-6 py-3 text-[13px] font-medium
-                                                ${spec.highlighted ? 'text-emerald-600 font-semibold' : 'text-gray-800'}`}>
+                                                ${spec.highlighted
+                                                    ? 'text-emerald-600 font-semibold'
+                                                    : 'text-gray-800'}`}>
                                                 {spec.value}
                                             </td>
                                         </tr>
@@ -223,73 +278,12 @@ export default function DetailPage({
                             </table>
                         </div>
 
-                        {/* ── REVIEWS ── */}
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden
-                            animate-[fadeUp_.5s_ease_both_.35s]">
-                            <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-100">
-                                <span className="text-amber-400">★</span>
-                                <h2 className="text-sm font-bold text-gray-900">
-                                    Reviews ({device.totalReviews})
-                                </h2>
-                            </div>
-                            <div className="p-6">
-                                <div className="flex items-center gap-6 mb-6 pb-6 border-b border-gray-100">
-                                    <div>
-                                        <div className="text-4xl font-bold text-gray-900 leading-none mb-1">
-                                            {device.averageRating}
-                                        </div>
-                                        <RatingStars rating={device.averageRating} size="md" />
-                                        <p className="text-xs text-gray-400 mt-1">{device.totalReviews} reviews</p>
-                                    </div>
-                                    <div className="flex-1 flex flex-col gap-1.5">
-                                        {[
-                                            { star: 5, count: 32, width: '85%' },
-                                            { star: 4, count: 4,  width: '12%' },
-                                            { star: 3, count: 1,  width: '5%'  },
-                                            { star: 2, count: 1,  width: '3%'  },
-                                            { star: 1, count: 0,  width: '0%'  },
-                                        ].map(({ star, count, width }) => (
-                                            <div key={star} className="flex items-center gap-2 text-xs text-gray-400">
-                                                <span className="w-4 text-right">{star}★</span>
-                                                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-amber-400 rounded-full"
-                                                        style={{ width }} />
-                                                </div>
-                                                <span className="w-3 text-right">{count}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                                {device.reviews.length === 0 && (
-                                    <p className="text-sm text-gray-400 text-center py-4">
-                                        No reviews yet for this listing.
-                                    </p>
-                                )}
-                                <div className="flex flex-col divide-y divide-gray-50">
-                                    {device.reviews.map((review) => (
-                                        <div key={review.id} className="py-4 first:pt-0">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`w-8 h-8 rounded-full ${review.avatarColor}
-                                                        flex items-center justify-center text-white text-xs font-bold`}>
-                                                        {review.reviewerInitials}
-                                                    </div>
-                                                    <span className="text-sm font-semibold text-gray-900">
-                                                        {review.reviewerName}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <RatingStars rating={review.rating} size="sm" />
-                                                    <span className="text-xs text-gray-400">{review.date}</span>
-                                                </div>
-                                            </div>
-                                            <p className="text-[13px] text-gray-500 leading-relaxed">
-                                                {review.text}
-                                            </p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                        {/* ── REVIEWS — wired to real data via ReviewList ── */}
+                        <div className="animate-[fadeUp_.5s_ease_both_.35s]">
+                            <ReviewList
+                                reviews={device.reviews}
+                                stats={reviewStats}
+                            />
                         </div>
                     </div>
 
@@ -306,31 +300,48 @@ export default function DetailPage({
                                 Grade {device.grade} · {activeStorage} · Unlocked · IMEI Clean
                             </p>
 
-                            <div className="flex items-baseline gap-2.5 mb-1.5">
-                                <span className="text-[32px] font-bold text-gray-900 leading-none tracking-tight">
-                                    ${currentPrice}
-                                </span>
-                                <span className="text-base text-gray-400 line-through">
-                                    ${device.originalPrice}
-                                </span>
-                                <span className="text-xs font-bold bg-amber-100 text-amber-600 px-2 py-0.5 rounded">
-                                    -{discount}%
-                                </span>
+                            {/* Price + stars row */}
+                            <div className="flex items-start justify-between mb-1.5">
+                                <div className="flex items-baseline gap-2.5">
+                                    <span className="text-[32px] font-bold text-gray-900
+                                        leading-none tracking-tight">
+                                        ${currentPrice}
+                                    </span>
+                                    <span className="text-base text-gray-400 line-through">
+                                        ${device.originalPrice}
+                                    </span>
+                                    <span className="text-xs font-bold bg-amber-100 text-amber-600
+                                        px-2 py-0.5 rounded">
+                                        -{discount}%
+                                    </span>
+                                </div>
+
+                                {/* Mini rating summary */}
+                                {device.totalReviews > 0 && (
+                                    <div className="flex flex-col items-end gap-0.5">
+                                        <RatingStars rating={device.averageRating} size="sm" />
+                                        <span className="text-[10px] text-gray-400">
+                                            {device.averageRating} ({device.totalReviews})
+                                        </span>
+                                    </div>
+                                )}
                             </div>
+
                             <p className="text-xs text-gray-400 mb-5">
                                 Free shipping · Arrives in {device.shippingDays}
                             </p>
 
                             {/* Escrow banner */}
-                            <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-100
-                                rounded-xl p-3.5 mb-5">
+                            <div className="flex items-start gap-3 bg-emerald-50 border
+                                border-emerald-100 rounded-xl p-3.5 mb-5">
                                 <ShieldCheckIcon className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                                 <div>
                                     <p className="text-xs font-bold text-emerald-900 mb-0.5">
                                         Buyer Protection — Escrow Secured
                                     </p>
                                     <p className="text-xs text-emerald-700 leading-relaxed">
-                                        Payment held safely until you inspect and approve the device within 5 days.
+                                        Payment held safely until you inspect and approve the
+                                        device within 5 days.
                                     </p>
                                 </div>
                             </div>
@@ -342,7 +353,8 @@ export default function DetailPage({
                                     <button
                                         key={opt}
                                         onClick={() => setActiveStorage(opt)}
-                                        className={`px-3.5 py-2 rounded-lg border text-xs font-medium transition-all
+                                        className={`px-3.5 py-2 rounded-lg border text-xs font-medium
+                                            transition-all
                                             ${activeStorage === opt
                                                 ? 'bg-teal-800 border-teal-800 text-white font-semibold'
                                                 : 'bg-white border-gray-200 text-gray-600 hover:border-teal-400 hover:text-teal-700'}`}
@@ -352,31 +364,35 @@ export default function DetailPage({
                                 ))}
                             </div>
 
-                            {/* ── CTA: Buy Now → navigates to /checkout/[id] ── */}
+                            {/* Buy Now CTA */}
                             <Link
                                 href={`/checkout/${device.id}`}
-                                className="w-full h-[52px] bg-teal-800 hover:bg-teal-700 text-white font-bold
-                                    rounded-xl flex items-center justify-center gap-2 text-[15px]
-                                    transition-all hover:-translate-y-0.5 hover:shadow-lg mb-2.5"
+                                className="w-full h-[52px] bg-teal-800 hover:bg-teal-700 text-white
+                                    font-bold rounded-xl flex items-center justify-center gap-2
+                                    text-[15px] transition-all hover:-translate-y-0.5
+                                    hover:shadow-lg mb-2.5"
                             >
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" strokeWidth="2.5">
+                                    <circle cx="9" cy="21" r="1" />
+                                    <circle cx="20" cy="21" r="1" />
                                     <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
                                 </svg>
                                 Buy Now — ${currentPrice}
                             </Link>
 
-                            {/* CTA — Make Offer */}
+                            {/* Make Offer */}
                             <button
                                 onClick={() => showToast('Offer sent to seller!')}
-                                className="w-full h-12 border-2 border-teal-800 text-teal-800 font-semibold
-                                    rounded-xl flex items-center justify-center gap-2 text-sm
-                                    hover:bg-cyan-50 transition-colors"
+                                className="w-full h-12 border-2 border-teal-800 text-teal-800
+                                    font-semibold rounded-xl flex items-center justify-center
+                                    gap-2 text-sm hover:bg-cyan-50 transition-colors"
                             >
                                 <ChatBubbleLeftIcon className="w-4 h-4" />
                                 Make an Offer
                             </button>
 
+                            {/* Secondary actions */}
                             <div className="grid grid-cols-3 gap-2 mt-3">
                                 <WatchlistButton
                                     deviceId={device.id}
@@ -423,8 +439,10 @@ export default function DetailPage({
                         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6
                             animate-[fadeUp_.5s_ease_both_.2s]">
                             <div className="flex items-center gap-3.5 mb-4">
-                                <div className={`w-[52px] h-[52px] rounded-full bg-gradient-to-br ${device.seller.avatarColor}
-                                    flex items-center justify-center text-white font-bold text-base shrink-0`}>
+                                <div className={`w-[52px] h-[52px] rounded-full
+                                    bg-gradient-to-br ${device.seller.avatarColor}
+                                    flex items-center justify-center text-white font-bold
+                                    text-base shrink-0`}>
                                     {device.seller.initials}
                                 </div>
                                 <div>
@@ -433,8 +451,9 @@ export default function DetailPage({
                                             {device.seller.name}
                                         </span>
                                         {device.seller.isVerified && (
-                                            <span className="flex items-center gap-1 text-[9px] font-bold uppercase
-                                                tracking-widest bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded">
+                                            <span className="flex items-center gap-1 text-[9px]
+                                                font-bold uppercase tracking-widest bg-emerald-50
+                                                text-emerald-700 px-1.5 py-0.5 rounded">
                                                 <CheckCircleSolid className="w-2.5 h-2.5" />
                                                 Verified
                                             </span>
@@ -471,8 +490,8 @@ export default function DetailPage({
                         </div>
 
                         {/* ── IMEI VERIFICATION CARD ── */}
-                        <div className="bg-gradient-to-br from-teal-800 to-teal-700 rounded-2xl p-6 text-white
-                            animate-[fadeUp_.5s_ease_both_.3s]">
+                        <div className="bg-gradient-to-br from-teal-800 to-teal-700 rounded-2xl
+                            p-6 text-white animate-[fadeUp_.5s_ease_both_.3s]">
                             <div className="flex items-center gap-2 mb-1">
                                 <ShieldCheckIcon className="w-4 h-4" />
                                 <h3 className="text-sm font-bold">Device Verification</h3>
@@ -487,9 +506,11 @@ export default function DetailPage({
                                     'Carrier unlocked (all SIM)',
                                     'Serial number matches',
                                 ].map((item) => (
-                                    <div key={item} className="flex items-center gap-2 text-sm text-teal-100">
+                                    <div key={item}
+                                        className="flex items-center gap-2 text-sm text-teal-100">
                                         <svg className="w-3.5 h-3.5 text-emerald-300 shrink-0"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                            viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            strokeWidth="3">
                                             <polyline points="20 6 9 17 4 12" />
                                         </svg>
                                         {item}
@@ -517,6 +538,7 @@ export default function DetailPage({
 
             <Footer />
 
+            {/* Toast */}
             {toast && (
                 <div className="fixed bottom-7 right-7 z-50 bg-gray-900 text-white px-5 py-3.5
                     rounded-xl shadow-2xl flex items-center gap-3 text-sm font-medium

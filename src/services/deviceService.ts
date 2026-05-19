@@ -1,10 +1,11 @@
 // src/services/deviceService.ts
 // ─────────────────────────────────────────────────────────────────
-// Fetches data from Supabase and maps it to the existing Device
-// type (src/types/device.ts) so all UI components stay unchanged.
+// Fetches data from Supabase and maps it to the Device type.
+// Week 5 update: getDeviceById now fetches real reviews.
 // ─────────────────────────────────────────────────────────────────
 import { supabase } from '@/lib/supabaseClient'
 import type { Device, Seller } from '@/types/device'
+import { getProductReviews, getReviewStats, toDisplayReview } from '@/services/reviewService'
 
 // ── Supabase condition → local grade + conditionLabel ─────────────
 function mapCondition(condition: string): { grade: Device['grade']; conditionLabel: Device['conditionLabel'] } {
@@ -80,7 +81,6 @@ function mapProduct(row: any): Device {
     return {
         id: row.id,
         brand: row.brand?.name ?? '—',
-        // ── NEW: map slug for breadcrumb links ──────────────────────
         brandSlug: row.brand?.slug ?? '',
         model: row.device_model?.model_name ?? row.title ?? '—',
         fullName: row.title ?? '—',
@@ -99,6 +99,9 @@ function mapProduct(row: any): Device {
         conditionChecks: [],
         specs: deviceSpecs,
         seller,
+        // Reviews are populated separately in getDeviceById for the detail page.
+        // For list views (getFeaturedDevices, getDevices) we leave them empty
+        // to avoid N+1 queries on every card.
         reviews: [],
         totalReviews: 0,
         averageRating: 0,
@@ -110,7 +113,6 @@ function mapProduct(row: any): Device {
         availableStorage: [storageVal],
         storagePrices: { [storageVal]: Number(row.price) ?? 0 },
         category: row.category?.name ?? '—',
-        // ── NEW: map slug for breadcrumb links ──────────────────────
         categorySlug: row.category?.slug ?? '',
     }
 }
@@ -149,17 +151,17 @@ export async function getFeaturedDevices(limit = 8): Promise<Device[]> {
 // LISTING FILTERS
 // ─────────────────────────────────────────────────────────────────
 export interface ListingFilters {
-    category?: string       // category slug
-    brand?: string          // brand slug
-    condition?: string      // like_new | excellent | good | fair
+    category?: string
+    brand?: string
+    condition?: string
     minPrice?: number
     maxPrice?: number
-    search?: string         // searches title via ilike
+    search?: string
     sortBy?: 'newest' | 'price_asc' | 'price_desc' | 'popular'
     page?: number
     limit?: number
-    storage?: string        // e.g. "128GB"
-    ram?: string            // e.g. "8GB"
+    storage?: string
+    ram?: string
 }
 
 /** Paginated product listing with filters */
@@ -213,7 +215,7 @@ export async function getDevices(
     return { devices: (data ?? []).map(mapProduct), total: count ?? 0 }
 }
 
-/** Single device detail page */
+/** Single device detail page — also fetches real reviews */
 export async function getDeviceById(id: string): Promise<Device | null> {
     const { data, error } = await supabase
         .from('products')
@@ -227,12 +229,30 @@ export async function getDeviceById(id: string): Promise<Device | null> {
         return null
     }
 
+    // Increment view count (fire-and-forget)
     supabase.from('products')
         .update({ view_count: (data.view_count ?? 0) + 1 })
         .eq('id', id)
-        .then(() => { })
+        .then(() => {})
 
-    return mapProduct(data)
+    const device = mapProduct(data)
+
+    // ── Fetch real reviews + stats in parallel ────────────────────
+    // Only done for the detail page to avoid N+1 on list views.
+    const [rawReviews, stats] = await Promise.all([
+        getProductReviews(id, 20),
+        getReviewStats('product_id', id),
+    ])
+
+    // Map to DisplayReview shape (used in DeviceDetailClient)
+    const reviews = rawReviews.map(toDisplayReview)
+
+    return {
+        ...device,
+        reviews,
+        totalReviews:  stats.totalReviews,
+        averageRating: stats.averageOverall,
+    }
 }
 
 /** Similar devices (same category, different id) */

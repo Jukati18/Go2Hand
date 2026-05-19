@@ -1,9 +1,10 @@
+// src/app/orders/[id]/page.tsx
 // ============================================
-// /orders/[id]/page.tsx — Order Detail Page
+// ORDER DETAIL PAGE
 //
-// Server component: fetches the order, checks
-// if current user is buyer or seller, then
-// renders the OrderStatusTracker + order summary.
+// Week 5 update: ReviewPromptCard added below
+// the status tracker when order is completed
+// and the current user is the buyer.
 // ============================================
 
 import { notFound, redirect } from 'next/navigation'
@@ -15,7 +16,9 @@ import { createServerClient } from '@supabase/ssr'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import OrderStatusTracker from '@/components/orders/OrderStatusTracker'
+import ReviewPromptCard from '@/components/reviews/ReviewPromptCard'
 import { getOrderById, formatOrderAmount } from '@/services/orderService'
+import { getUserOrderReview } from '@/services/reviewService'
 
 interface Props {
     params: Promise<{ id: string }>
@@ -32,7 +35,7 @@ export default async function OrderDetailPage({ params }: Props) {
         {
             cookies: {
                 getAll: () => cookieStore.getAll(),
-                setAll: () => { },
+                setAll: () => {},
             },
         }
     )
@@ -44,14 +47,22 @@ export default async function OrderDetailPage({ params }: Props) {
     if (!order) notFound()
 
     // ── Security: only buyer or seller can view this order ────────
-    const isBuyer = user.id === order.buyerId
+    const isBuyer  = user.id === order.buyerId
     const isSeller = user.id === order.sellerId
     if (!isBuyer && !isSeller) notFound()
 
-    const role = isBuyer ? 'buyer' : 'seller'
-    const product = order.product
-    const otherParty = isBuyer ? order.seller : order.buyer
+    const role            = isBuyer ? 'buyer' : 'seller'
+    const product         = order.product
+    const otherParty      = isBuyer ? order.seller : order.buyer
     const otherPartyLabel = isBuyer ? 'Seller' : 'Buyer'
+
+    // ── Check if buyer already reviewed (for ReviewPromptCard) ────
+    // Only needed when the order is complete and current user is buyer.
+    let existingReview = null
+    if (isBuyer && order.status === 'completed') {
+        existingReview = await getUserOrderReview(id)
+    }
+    const hasReviewed = existingReview !== null
 
     return (
         <div className="min-h-screen bg-[#F4F2EE]">
@@ -67,16 +78,17 @@ export default async function OrderDetailPage({ params }: Props) {
                         My Orders
                     </Link>
                     <ChevronRightIcon className="w-3 h-3" />
-                    <span className="text-gray-600 font-medium font-mono">#{id.slice(0, 8).toUpperCase()}</span>
+                    <span className="text-gray-600 font-medium font-mono">
+                        #{id.slice(0, 8).toUpperCase()}
+                    </span>
                 </nav>
 
                 {/* ── Page Title ── */}
                 <div className="mb-6">
-                    <h1 className="text-xl font-bold text-gray-900">
-                        Order Details
-                    </h1>
+                    <h1 className="text-xl font-bold text-gray-900">Order Details</h1>
                     <p className="text-sm text-gray-400 mt-0.5 font-mono">
-                        #{order.id.slice(0, 8).toUpperCase()} · Placed {new Date(order.createdAt).toLocaleDateString('en-US', {
+                        #{order.id.slice(0, 8).toUpperCase()} · Placed{' '}
+                        {new Date(order.createdAt).toLocaleDateString('en-US', {
                             month: 'long', day: 'numeric', year: 'numeric',
                         })}
                     </p>
@@ -85,22 +97,24 @@ export default async function OrderDetailPage({ params }: Props) {
                 {/* ── Main Grid ── */}
                 <div className="grid grid-cols-[1fr_380px] gap-6 items-start">
 
-                    {/* ── LEFT: Status Tracker ── */}
-                    {/* 
-                        OrderStatusTracker is a Client Component.
-                        We pass the full order object from the server.
-                        The 'role' prop controls which buttons appear.
-                    */}
+                    {/* ── LEFT: Status Tracker + Review Prompt ── */}
                     <div className="flex flex-col gap-4">
                         <div className="relative">
-                            <OrderStatusTracker
-                                order={order}
-                                role={role}
-                                // onAction triggers a page refresh in client components.
-                                // Since this is a Server Component page, the client
-                                // component calls router.refresh() inside itself.
-                            />
+                            <OrderStatusTracker order={order} role={role} />
                         </div>
+
+                        {/* ── REVIEW PROMPT — buyer only, completed orders ── */}
+                        {isBuyer && order.status === 'completed' && (
+                            <ReviewPromptCard
+                                hasReviewed={hasReviewed}
+                                orderId={id}
+                                sellerId={order.sellerId}
+                                productId={order.productId}
+                                productTitle={product?.title ?? 'Device'}
+                                productImage={product?.images?.[0]}
+                                existingRating={existingReview?.overallRating}
+                            />
+                        )}
 
                         {/* ── Shipping Address (buyer view) ── */}
                         {isBuyer && order.shippingAddress && (
@@ -109,13 +123,17 @@ export default async function OrderDetailPage({ params }: Props) {
                                     Shipping Address
                                 </h3>
                                 <div className="text-sm text-gray-600 space-y-0.5 leading-relaxed">
-                                    <p className="font-semibold text-gray-800">{order.shippingAddress.fullName}</p>
+                                    <p className="font-semibold text-gray-800">
+                                        {order.shippingAddress.fullName}
+                                    </p>
                                     <p>{order.shippingAddress.addressLine1}</p>
                                     {order.shippingAddress.addressLine2 && (
                                         <p>{order.shippingAddress.addressLine2}</p>
                                     )}
                                     <p>
-                                        {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.postalCode}
+                                        {order.shippingAddress.city},{' '}
+                                        {order.shippingAddress.state}{' '}
+                                        {order.shippingAddress.postalCode}
                                     </p>
                                     <p className="text-gray-400">{order.shippingAddress.phone}</p>
                                 </div>
@@ -123,7 +141,7 @@ export default async function OrderDetailPage({ params }: Props) {
                         )}
                     </div>
 
-                    {/* ── RIGHT: Order Summary Card ── */}
+                    {/* ── RIGHT: Order Summary ── */}
                     <div className="flex flex-col gap-4">
 
                         {/* Device summary */}
@@ -131,10 +149,8 @@ export default async function OrderDetailPage({ params }: Props) {
                             <div className="px-6 py-4 border-b border-gray-100">
                                 <h3 className="text-sm font-bold text-gray-900">Device</h3>
                             </div>
-
                             {product && (
                                 <div className="p-4 flex items-center gap-4">
-                                    {/* Device image */}
                                     <div className="w-16 h-16 rounded-xl bg-gray-50 border border-gray-100
                                         flex items-center justify-center shrink-0 overflow-hidden">
                                         {product.images[0] ? (
@@ -150,17 +166,19 @@ export default async function OrderDetailPage({ params }: Props) {
                                             <span className="text-2xl">📱</span>
                                         )}
                                     </div>
-
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-bold text-teal-600 uppercase tracking-wider mb-0.5">
+                                        <p className="text-xs font-bold text-teal-600 uppercase
+                                            tracking-wider mb-0.5">
                                             {product.brand}
                                         </p>
-                                        <p className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">
+                                        <p className="text-sm font-semibold text-gray-900 leading-snug
+                                            line-clamp-2">
                                             {product.title}
                                         </p>
                                         <Link
                                             href={`/devices/${product.id}`}
-                                            className="text-xs text-teal-600 hover:text-teal-800 mt-1 inline-block transition-colors"
+                                            className="text-xs text-teal-600 hover:text-teal-800
+                                                mt-1 inline-block transition-colors"
                                         >
                                             View listing →
                                         </Link>
@@ -176,13 +194,11 @@ export default async function OrderDetailPage({ params }: Props) {
                                     {isBuyer ? 'Payment Summary' : 'Earnings Summary'}
                                 </h3>
                             </div>
-
                             <div className="px-6 py-4 flex flex-col gap-2.5">
                                 <PriceLine label="Device price" value={formatOrderAmount(order.amount)} />
                                 <PriceLine label="Shipping" value={
                                     order.shippingFee === 0 ? 'Free' : formatOrderAmount(order.shippingFee)
                                 } />
-
                                 {isSeller && (
                                     <PriceLine
                                         label="Platform fee (5%)"
@@ -190,8 +206,8 @@ export default async function OrderDetailPage({ params }: Props) {
                                         muted
                                     />
                                 )}
-
-                                <div className="border-t border-gray-100 pt-2.5 flex items-center justify-between">
+                                <div className="border-t border-gray-100 pt-2.5 flex items-center
+                                    justify-between">
                                     <span className="text-sm font-bold text-gray-900">
                                         {isBuyer ? 'Total paid' : 'Your payout'}
                                     </span>
@@ -203,11 +219,9 @@ export default async function OrderDetailPage({ params }: Props) {
                                         )}
                                     </span>
                                 </div>
-
-                                {/* Escrow notice */}
                                 {['paid', 'shipped', 'in_inspection'].includes(order.status) && (
-                                    <div className="mt-1 bg-emerald-50 border border-emerald-100 rounded-xl
-                                        px-3 py-2.5 text-xs text-emerald-700 leading-relaxed">
+                                    <div className="mt-1 bg-emerald-50 border border-emerald-100
+                                        rounded-xl px-3 py-2.5 text-xs text-emerald-700 leading-relaxed">
                                         {isBuyer
                                             ? '🔒 Your payment is held safely in escrow and will only be released once you approve the device.'
                                             : '🔒 Payment is held in escrow. It will be transferred to you once the buyer approves.'
@@ -220,13 +234,14 @@ export default async function OrderDetailPage({ params }: Props) {
                         {/* Other party info */}
                         {otherParty && (
                             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                                <p className="text-xs font-bold text-gray-400 uppercase
+                                    tracking-wider mb-3">
                                     {otherPartyLabel}
                                 </p>
                                 <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500
-                                        to-emerald-400 flex items-center justify-center text-white
-                                        text-xs font-bold shrink-0">
+                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br
+                                        from-teal-500 to-emerald-400 flex items-center justify-center
+                                        text-white text-xs font-bold shrink-0">
                                         {otherParty.username.slice(0, 2).toUpperCase()}
                                     </div>
                                     <span className="text-sm font-semibold text-gray-800">
@@ -244,15 +259,9 @@ export default async function OrderDetailPage({ params }: Props) {
     )
 }
 
-// ── Small helper component ────────────────────────────────────────
-function PriceLine({
-    label,
-    value,
-    muted = false,
-}: {
-    label: string
-    value: string
-    muted?: boolean
+// ── Small helper ──────────────────────────────────────────────────
+function PriceLine({ label, value, muted = false }: {
+    label: string; value: string; muted?: boolean
 }) {
     return (
         <div className="flex items-center justify-between">
@@ -266,7 +275,5 @@ function PriceLine({
 
 export async function generateMetadata({ params }: Props) {
     const { id } = await params
-    return {
-        title: `Order #${id.slice(0, 8).toUpperCase()} — Go2Hand`,
-    }
+    return { title: `Order #${id.slice(0, 8).toUpperCase()} — Go2Hand` }
 }
