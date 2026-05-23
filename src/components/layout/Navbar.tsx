@@ -1,7 +1,15 @@
 "use client";
 
 // ============================================
-// NAVBAR — Shared across all pages
+// NAVBAR — src/components/layout/Navbar.tsx
+//
+// Week 6 update: Added cart icon with live
+// badge count between the notification bell
+// and the watchlist heart.
+//
+// The badge is driven by CartContext so it
+// updates in real-time as items are added /
+// removed anywhere in the app.
 // ============================================
 
 import Link from "next/link";
@@ -15,44 +23,49 @@ import {
     ShoppingBagIcon,
     Cog6ToothIcon,
     ArrowRightOnRectangleIcon,
-} from '@heroicons/react/24/outline';
+    ShoppingCartIcon,   // ← NEW: cart icon from heroicons
+} from "@heroicons/react/24/outline";
 import SearchBar from "@/components/layout/SearchBar";
+import { useCart } from "@/context/CartContext";
 
 // ── Category megamenu ─────────────────────────────────────────────
-// Links now point to /categories/[slug] for the landing pages.
-// The listing page (/devices?category=X) is still reachable via
-// "View all devices →" inside the megamenu.
 const CATEGORIES = [
-    { icon: '📱', label: 'Smartphones', href: '/categories/smartphones', desc: '1,200+ listings' },
-    { icon: '💻', label: 'Laptops',     href: '/categories/laptops',     desc: '340+ listings'  },
-    { icon: '⬛', label: 'Tablets',     href: '/categories/tablets',     desc: '180+ listings'  },
-    { icon: '⌚', label: 'Smartwatches',href: '/categories/watches',     desc: '95+ listings'   },
-    { icon: '🎧', label: 'Audio',       href: '/categories/audio',       desc: '210+ listings'  },
-    { icon: '🖥️', label: 'Desktops',   href: '/categories/desktops',    desc: '60+ listings'   },
-]
+    { icon: "📱", label: "Smartphones", href: "/categories/smartphones", desc: "1,200+ listings" },
+    { icon: "💻", label: "Laptops",     href: "/categories/laptops",     desc: "340+ listings"  },
+    { icon: "⬛", label: "Tablets",     href: "/categories/tablets",     desc: "180+ listings"  },
+    { icon: "⌚", label: "Smartwatches",href: "/categories/watches",     desc: "95+ listings"   },
+    { icon: "🎧", label: "Audio",       href: "/categories/audio",       desc: "210+ listings"  },
+    { icon: "🖥️", label: "Desktops",   href: "/categories/desktops",    desc: "60+ listings"   },
+];
 
 // ── User menu items ───────────────────────────────────────────────
 const USER_MENU = [
-    { icon: UserCircleIcon,            label: 'My Profile',  href: '/profile'             },
-    { icon: ClipboardDocumentListIcon, label: 'My Listings', href: '/dashboard/listings'  },
-    { icon: ShoppingBagIcon,           label: 'My Orders',   href: '/dashboard/orders'    },
-    { icon: HeartIcon,                 label: 'Watchlist',   href: '/watchlist'           },
-    { icon: Cog6ToothIcon,             label: 'Settings',    href: '/settings'            },
-]
+    { icon: UserCircleIcon,            label: "My Profile",  href: "/profile"            },
+    { icon: ClipboardDocumentListIcon, label: "My Listings", href: "/dashboard/listings" },
+    { icon: ShoppingBagIcon,           label: "My Orders",   href: "/dashboard/orders"   },
+    { icon: HeartIcon,                 label: "Watchlist",   href: "/watchlist"          },
+    { icon: Cog6ToothIcon,             label: "Settings",    href: "/settings"           },
+];
 
 export default function Navbar() {
-    const [userMenuOpen, setUserMenuOpen] = useState(false)
-    const userMenuRef = useRef<HTMLDivElement>(null)
+    const [userMenuOpen, setUserMenuOpen] = useState(false);
+    const userMenuRef = useRef<HTMLDivElement>(null);
+
+    // Live cart count from context — updates badge instantly
+    const { count: cartCount } = useCart();
 
     useEffect(() => {
         function onMouseDown(e: MouseEvent) {
-            if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
-                setUserMenuOpen(false)
+            if (
+                userMenuRef.current &&
+                !userMenuRef.current.contains(e.target as Node)
+            ) {
+                setUserMenuOpen(false);
             }
         }
-        document.addEventListener('mousedown', onMouseDown)
-        return () => document.removeEventListener('mousedown', onMouseDown)
-    }, [])
+        document.addEventListener("mousedown", onMouseDown);
+        return () => document.removeEventListener("mousedown", onMouseDown);
+    }, []);
 
     return (
         <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
@@ -137,23 +150,63 @@ export default function Navbar() {
                         Sell Device
                     </Link>
 
-                    {/* Notification bell */}
+                    {/* ── Notification bell ── */}
                     <button
                         className="relative w-9 h-9 flex items-center justify-center rounded-full
                             border border-gray-200 hover:border-teal-400 hover:bg-teal-50
                             transition-colors ml-1"
-                        aria-label="Notifications">
+                        aria-label="Notifications"
+                    >
                         <BellIcon className="w-[18px] h-[18px] text-gray-500" />
+                        {/* Static unread dot */}
                         <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500
                             rounded-full border-2 border-white" />
                     </button>
 
-                    {/* Watchlist heart */}
-                    <Link href="/watchlist"
+                    {/* ── Cart icon (NEW) ── */}
+                    {/* Lives between bell and watchlist per Week-6 spec.
+                        Badge is driven by live CartContext count so it
+                        reflects real-time adds/removes across the app. */}
+                    <Link
+                        href="/cart"
+                        aria-label={`Cart — ${cartCount} item${cartCount !== 1 ? "s" : ""}`}
+                        className="relative w-9 h-9 flex items-center justify-center rounded-full
+                            border border-gray-200 hover:border-teal-400 hover:bg-teal-50
+                            transition-all duration-150 group"
+                    >
+                        <ShoppingCartIcon className="w-[18px] h-[18px] text-gray-500
+                            group-hover:text-teal-600 transition-colors" />
+
+                        {/* Badge — only visible when cart has items.
+                            Uses CSS scale transition so it pops in smoothly. */}
+                        <span
+                            className={`
+                                absolute -top-1 -right-1
+                                min-w-[16px] h-4 px-1
+                                bg-teal-700 text-white text-[9px] font-bold
+                                rounded-full flex items-center justify-center
+                                border-2 border-white
+                                transition-all duration-200 ease-out
+                                ${cartCount > 0
+                                    ? "opacity-100 scale-100"
+                                    : "opacity-0 scale-50 pointer-events-none"
+                                }
+                            `}
+                            aria-hidden="true"
+                        >
+                            {/* Cap display at 99 to keep badge compact */}
+                            {cartCount > 99 ? "99+" : cartCount}
+                        </span>
+                    </Link>
+
+                    {/* ── Watchlist heart ── */}
+                    <Link
+                        href="/watchlist"
                         className="relative w-9 h-9 flex items-center justify-center rounded-full
                             border border-gray-200 hover:border-teal-400 hover:bg-teal-50
                             transition-colors"
-                        aria-label="Watchlist">
+                        aria-label="Watchlist"
+                    >
                         <HeartIcon className="w-[18px] h-[18px] text-gray-500" />
                         <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1
                             bg-amber-500 text-white text-[9px] font-bold rounded-full
@@ -171,15 +224,19 @@ export default function Navbar() {
                             className={`flex items-center gap-1.5 rounded-full pl-0.5 pr-2.5 py-0.5
                                 border transition-all duration-150
                                 ${userMenuOpen
-                                    ? 'border-teal-400 bg-teal-50'
-                                    : 'border-gray-200 hover:border-teal-300 hover:bg-gray-50'}`}>
+                                    ? "border-teal-400 bg-teal-50"
+                                    : "border-gray-200 hover:border-teal-300 hover:bg-gray-50"
+                                }`}
+                        >
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br
                                 from-teal-600 to-emerald-500 flex items-center justify-center
                                 text-white text-xs font-bold">
                                 AJ
                             </div>
-                            <ChevronDownIcon className={`w-3 h-3 text-gray-400 transition-transform
-                                duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
+                            <ChevronDownIcon
+                                className={`w-3 h-3 text-gray-400 transition-transform
+                                    duration-200 ${userMenuOpen ? "rotate-180" : ""}`}
+                            />
                         </button>
 
                         {userMenuOpen && (
@@ -203,11 +260,14 @@ export default function Navbar() {
 
                                 <div className="py-1.5">
                                     {USER_MENU.map(({ icon: Icon, label, href }) => (
-                                        <Link key={label} href={href}
+                                        <Link
+                                            key={label}
+                                            href={href}
                                             onClick={() => setUserMenuOpen(false)}
                                             className="flex items-center gap-3 px-4 py-2.5 text-sm
                                                 text-gray-600 hover:text-teal-700 hover:bg-teal-50
-                                                transition-colors">
+                                                transition-colors"
+                                        >
                                             <Icon className="w-4 h-4 shrink-0" />
                                             {label}
                                         </Link>
@@ -218,7 +278,8 @@ export default function Navbar() {
                                     <button
                                         onClick={() => setUserMenuOpen(false)}
                                         className="flex items-center gap-3 w-full px-4 py-2.5
-                                            text-sm text-red-500 hover:bg-red-50 transition-colors">
+                                            text-sm text-red-500 hover:bg-red-50 transition-colors"
+                                    >
                                         <ArrowRightOnRectangleIcon className="w-4 h-4 shrink-0" />
                                         Sign Out
                                     </button>
