@@ -1,11 +1,6 @@
 // src/app/categories/[category]/[brand]/page.tsx
 // ============================================
-// BRAND-IN-CATEGORY PAGE — /categories/smartphones/apple
-//
-// Server Component — all data fetching happens here.
-// The only interactive element (sort dropdown) is
-// extracted into <SortSelect> ('use client') so this
-// page stays fully SSR / SEO-friendly.
+// BRAND-IN-CATEGORY PAGE — Responsive
 // ============================================
 
 import { notFound } from 'next/navigation'
@@ -15,15 +10,12 @@ import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import Breadcrumb from '@/components/layout/Breadcrumb'
 import DeviceCard from '@/components/devices/DeviceCard'
-import SortSelect from '@/components/ui/SortSelect'          // ← client component
+import SortSelect from '@/components/ui/SortSelect'
 import {
-    getCategoryBySlug,
-    getBrandBySlug,
-    getModelsInBrandCategory,
+    getCategoryBySlug, getBrandBySlug, getModelsInBrandCategory,
 } from '@/services/categoryService'
 import { getDevices, type ListingFilters } from '@/services/deviceService'
 
-// ── Sort options passed to <SortSelect> ───────────────────────────
 const SORT_OPTIONS: { label: string; value: NonNullable<ListingFilters['sortBy']> }[] = [
     { label: 'Most Popular',      value: 'popular'    },
     { label: 'Newest First',      value: 'newest'     },
@@ -40,7 +32,6 @@ export default async function BrandCategoryPage({ params, searchParams }: Props)
     const { category: categorySlug, brand: brandSlug } = await params
     const { model: modelFilter, sort: sortParam }      = await searchParams
 
-    // ── Parallel fetch ────────────────────────────────────────────
     const [category, brand, models] = await Promise.all([
         getCategoryBySlug(categorySlug),
         getBrandBySlug(brandSlug),
@@ -49,27 +40,18 @@ export default async function BrandCategoryPage({ params, searchParams }: Props)
 
     if (!category || !brand) notFound()
 
-    // Validate sort param — fall back to 'popular'
-    const sortBy =
-        (SORT_OPTIONS.find(s => s.value === sortParam)?.value) ?? 'popular'
+    const sortBy = (SORT_OPTIONS.find(s => s.value === sortParam)?.value) ?? 'popular'
 
-    // Fetch devices for this brand + category
     const { devices: allDevices, total } = await getDevices({
-        category: categorySlug,
-        brand:    brandSlug,
-        sortBy,
-        limit:    40,
+        category: categorySlug, brand: brandSlug, sortBy, limit: 40,
     })
 
-    // Apply model filter in JS (exact match against device_model.model_name)
     const devices = modelFilter
         ? allDevices.filter(d => d.model === modelFilter)
         : allDevices
 
-    // Base path used by model-filter links and <SortSelect>
     const baseHref = `/categories/${categorySlug}/${brandSlug}`
 
-    // Helper: build a URL preserving whichever params should survive the click
     function buildHref(overrides: { model?: string | undefined; sort?: string | undefined }) {
         const merged = {
             model: modelFilter,
@@ -88,11 +70,8 @@ export default async function BrandCategoryPage({ params, searchParams }: Props)
             <Navbar />
 
             {/* ==================== HERO ==================== */}
-            <section className="bg-gradient-to-br from-teal-900 via-teal-800 to-teal-700
-                pt-9 pb-14 px-6">
+            <section className="bg-gradient-to-br from-teal-900 via-teal-800 to-teal-700 pt-8 sm:pt-9 pb-12 sm:pb-14 px-4 sm:px-6">
                 <div className="max-w-[1160px] mx-auto">
-
-                    {/* Breadcrumb: Home › Smartphones › Apple */}
                     <Breadcrumb
                         items={[
                             { label: category.name, href: `/categories/${categorySlug}` },
@@ -101,97 +80,69 @@ export default async function BrandCategoryPage({ params, searchParams }: Props)
                         dark
                     />
 
-                    <div className="mt-6 flex items-center gap-5">
+                    <div className="mt-5 sm:mt-6 flex items-start sm:items-center gap-4 sm:gap-5">
                         {/* Brand logo or initial bubble */}
-                        <div className="w-[72px] h-[72px] rounded-2xl shrink-0 border border-white/10
-                            flex items-center justify-center overflow-hidden
-                            bg-white/10 backdrop-blur-sm">
+                        <div className="w-[60px] sm:w-[72px] h-[60px] sm:h-[72px] rounded-2xl shrink-0 border border-white/10 flex items-center justify-center overflow-hidden bg-white/10 backdrop-blur-sm">
                             {brand.logo_url ? (
-                                <Image
-                                    src={brand.logo_url}
-                                    alt={brand.name}
-                                    width={56}
-                                    height={56}
-                                    className="w-14 h-14 object-contain p-1"
-                                    unoptimized
-                                />
+                                <Image src={brand.logo_url} alt={brand.name}
+                                    width={56} height={56} className="w-12 sm:w-14 h-12 sm:h-14 object-contain p-1" unoptimized />
                             ) : (
-                                <span className="text-3xl font-black text-white">
-                                    {brand.name[0]}
-                                </span>
+                                <span className="text-2xl sm:text-3xl font-black text-white">{brand.name[0]}</span>
                             )}
                         </div>
 
-                        <div>
-                            <h1 className="text-4xl font-black text-white tracking-tight">
+                        <div className="flex-1 min-w-0">
+                            <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight">
                                 {brand.name}{' '}
                                 <span className="text-teal-300">{category.name}</span>
                             </h1>
                             {brand.description && (
-                                <p className="text-teal-200 text-sm mt-1.5 max-w-md leading-relaxed">
+                                <p className="text-teal-200 text-sm mt-1.5 max-w-md leading-relaxed hidden sm:block">
                                     {brand.description}
                                 </p>
                             )}
                         </div>
 
-                        {/* Total count */}
-                        <div className="ml-auto shrink-0 text-right">
-                            <div className="text-3xl font-black text-white">{total}</div>
-                            <div className="text-teal-300 text-xs font-semibold mt-0.5">
-                                Verified devices
-                            </div>
+                        <div className="shrink-0 text-right ml-auto">
+                            <div className="text-2xl sm:text-3xl font-black text-white">{total}</div>
+                            <div className="text-teal-300 text-xs font-semibold mt-0.5">Verified devices</div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <div className="max-w-[1160px] mx-auto px-6 py-10">
+            <div className="max-w-[1160px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
                 {/* ==================== CONTROLS ROW ==================== */}
-                <div className="flex items-start justify-between gap-6 mb-8">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
 
-                    {/* ── Model filter pills (pure <Link>, no JS needed) ── */}
+                    {/* Model filter pills — horizontal scroll on mobile */}
                     {models.length > 0 && (
-                        <div className="flex items-center gap-2 flex-wrap flex-1">
-                            <span className="text-[11px] font-bold text-gray-400 uppercase
-                                tracking-widest mr-1 shrink-0">
+                        <div className="flex items-center gap-2 flex-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mr-1 shrink-0">
                                 Model
                             </span>
 
                             {/* "All" pill */}
-                            <Link
-                                href={buildHref({ model: undefined })}
-                                className={`px-4 py-2 rounded-full text-xs font-semibold border
-                                    transition-all duration-150
+                            <Link href={buildHref({ model: undefined })}
+                                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs font-semibold border transition-all duration-150 whitespace-nowrap shrink-0
                                     ${!modelFilter
                                         ? 'bg-teal-800 border-teal-800 text-white shadow-sm'
-                                        : 'bg-white border-gray-200 text-gray-600 hover:border-teal-400 hover:text-teal-700'
-                                    }`}
-                            >
+                                        : 'bg-white border-gray-200 text-gray-600 hover:border-teal-400 hover:text-teal-700'}`}>
                                 All
-                                <span className={`ml-1.5 font-normal
-                                    ${!modelFilter ? 'text-teal-200' : 'text-gray-400'}`}>
+                                <span className={`ml-1.5 font-normal ${!modelFilter ? 'text-teal-200' : 'text-gray-400'}`}>
                                     ({total})
                                 </span>
                             </Link>
 
-                            {/* One pill per model */}
-                            {models.map((model) => (
-                                <Link
-                                    key={model.id}
-                                    href={buildHref({ model: model.model_name })}
-                                    className={`px-4 py-2 rounded-full text-xs font-semibold border
-                                        transition-all duration-150
+                            {models.map(model => (
+                                <Link key={model.id} href={buildHref({ model: model.model_name })}
+                                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs font-semibold border transition-all duration-150 whitespace-nowrap shrink-0
                                         ${modelFilter === model.model_name
                                             ? 'bg-teal-800 border-teal-800 text-white shadow-sm'
-                                            : 'bg-white border-gray-200 text-gray-600 hover:border-teal-400 hover:text-teal-700'
-                                        }`}
-                                >
+                                            : 'bg-white border-gray-200 text-gray-600 hover:border-teal-400 hover:text-teal-700'}`}>
                                     {model.model_name}
-                                    <span className={`ml-1.5 font-normal
-                                        ${modelFilter === model.model_name
-                                            ? 'text-teal-200'
-                                            : 'text-gray-400'}`}>
+                                    <span className={`ml-1.5 font-normal ${modelFilter === model.model_name ? 'text-teal-200' : 'text-gray-400'}`}>
                                         ({model.count})
                                     </span>
                                 </Link>
@@ -199,8 +150,8 @@ export default async function BrandCategoryPage({ params, searchParams }: Props)
                         </div>
                     )}
 
-                    {/* ── Sort dropdown — CLIENT component (fixes the error) ── */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    {/* Sort dropdown */}
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                         <span className="text-sm text-gray-400">Sort:</span>
                         <SortSelect
                             defaultValue={sortBy}
@@ -212,11 +163,10 @@ export default async function BrandCategoryPage({ params, searchParams }: Props)
                 </div>
 
                 {/* Results count */}
-                <p className="text-sm text-gray-500 mb-5">
+                <p className="text-sm text-gray-500 mb-4 sm:mb-5">
                     {modelFilter ? (
                         <>
-                            Showing{' '}
-                            <span className="font-semibold text-gray-800">{devices.length}</span>
+                            Showing <span className="font-semibold text-gray-800">{devices.length}</span>
                             {' '}result{devices.length !== 1 ? 's' : ''} for{' '}
                             <span className="font-semibold text-gray-800">{modelFilter}</span>
                         </>
@@ -229,24 +179,19 @@ export default async function BrandCategoryPage({ params, searchParams }: Props)
                 </p>
 
                 {/* ==================== DEVICE GRID ==================== */}
+                {/* 2-col on mobile → 3-col on md → 4-col on lg */}
                 {devices.length > 0 ? (
-                    <div className="grid grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                         {devices.map((device, i) => (
-                            <div
-                                key={device.id}
-                                className="animate-[fadeUp_.35s_ease_both]"
-                                style={{ animationDelay: `${i * 40}ms` }}
-                            >
+                            <div key={device.id} className="animate-[fadeUp_.35s_ease_both]"
+                                style={{ animationDelay: `${i * 40}ms` }}>
                                 <DeviceCard device={device} />
                             </div>
                         ))}
                     </div>
                 ) : (
-                    <div className="flex flex-col items-center justify-center py-24 text-center">
-                        <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center
-                            justify-center mb-4 text-2xl">
-                            🔍
-                        </div>
+                    <div className="flex flex-col items-center justify-center py-20 sm:py-24 text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4 text-2xl">🔍</div>
                         <p className="text-lg font-semibold text-gray-700 mb-1">
                             No {brand.name} {modelFilter ?? category.name} found
                         </p>
@@ -254,29 +199,21 @@ export default async function BrandCategoryPage({ params, searchParams }: Props)
                             Try clearing the model filter or check back soon.
                         </p>
                         {modelFilter && (
-                            <Link
-                                href={baseHref}
-                                className="bg-teal-800 text-white text-sm font-semibold
-                                    px-5 py-2.5 rounded-xl hover:bg-teal-700 transition-colors"
-                            >
+                            <Link href={baseHref}
+                                className="bg-teal-800 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-teal-700 transition-colors">
                                 Show all {brand.name} devices
                             </Link>
                         )}
                     </div>
                 )}
 
-                {/* "See all in /devices" with full filter UI */}
+                {/* See all link */}
                 {devices.length > 0 && (
-                    <div className="mt-10 text-center">
-                        <Link
-                            href={`/devices?category=${categorySlug}&brand=${brandSlug}`}
-                            className="inline-flex items-center gap-2 border-2 border-teal-800
-                                text-teal-800 font-semibold px-6 py-3 rounded-xl
-                                hover:bg-teal-800 hover:text-white transition-all duration-200 text-sm"
-                        >
+                    <div className="mt-8 sm:mt-10 text-center">
+                        <Link href={`/devices?category=${categorySlug}&brand=${brandSlug}`}
+                            className="inline-flex items-center gap-2 border-2 border-teal-800 text-teal-800 font-semibold px-5 sm:px-6 py-3 rounded-xl hover:bg-teal-800 hover:text-white transition-all duration-200 text-sm">
                             See all {brand.name} listings with full filters
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" strokeWidth="2.5">
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                 <path d="m9 18 6-6-6-6" />
                             </svg>
                         </Link>
@@ -289,18 +226,14 @@ export default async function BrandCategoryPage({ params, searchParams }: Props)
     )
 }
 
-// ── SEO metadata ──────────────────────────────────────────────────
 export async function generateMetadata({ params }: Props) {
     const { category: categorySlug, brand: brandSlug } = await params
     const [category, brand] = await Promise.all([
-        getCategoryBySlug(categorySlug),
-        getBrandBySlug(brandSlug),
+        getCategoryBySlug(categorySlug), getBrandBySlug(brandSlug),
     ])
     if (!category || !brand) return {}
     return {
         title: `${brand.name} ${category.name} — Go2Hand`,
-        description:
-            `Buy verified second-hand ${brand.name} ${category.name.toLowerCase()} on Go2Hand. ` +
-            `IMEI checked, escrow protected, 30-day returns.`,
+        description: `Buy verified second-hand ${brand.name} ${category.name.toLowerCase()} on Go2Hand. IMEI checked, escrow protected, 30-day returns.`,
     }
 }

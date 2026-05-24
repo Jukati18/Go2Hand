@@ -123,106 +123,79 @@ export default function WatchlistPage() {
     return (
         <div className="min-h-screen bg-[#F4F2EE]">
             <Navbar />
-
-            <div className="max-w-[1160px] mx-auto px-6 py-10">
-
+ 
+            <div className="max-w-[1160px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
+ 
                 {/* ── PAGE HEADER ── */}
-                <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-4">
                     <div>
-                        <h1 className="flex items-center gap-2.5 text-2xl font-bold text-gray-900">
+                        <h1 className="flex items-center gap-2.5 text-xl sm:text-2xl font-bold text-gray-900">
                             <HeartSolid className="w-6 h-6 text-red-500" />
                             My Watchlist
                             {!loading && totalSaved > 0 && (
-                                <span className="text-base font-normal text-gray-400">
-                                    ({totalSaved})
-                                </span>
+                                <span className="text-base font-normal text-gray-400">({totalSaved})</span>
                             )}
                         </h1>
-                        <p className="text-sm text-gray-400 mt-1">
-                            Devices you&apos;re keeping an eye on
-                        </p>
+                        <p className="text-sm text-gray-400 mt-1">Devices you&apos;re keeping an eye on</p>
                     </div>
-
-                    {/* ── Controls: Sort + Clear All ── */}
+ 
                     {!loading && totalSaved > 0 && (
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                             {/* Sort selector */}
-                            <div className="flex items-center gap-2 bg-white border border-gray-200
-                                rounded-xl px-3 py-2 shadow-sm">
-                                <ArrowsUpDownIcon className="w-3.5 h-3.5 text-gray-400" />
+                            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm flex-1 sm:flex-none">
+                                <ArrowsUpDownIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                                 <select
                                     value={sortBy}
-                                    onChange={(e) => setSortBy(e.target.value)}
-                                    className="text-sm text-gray-700 bg-transparent outline-none cursor-pointer"
-                                >
-                                    {SORTS.map((s) => (
+                                    onChange={e => setSortBy(e.target.value)}
+                                    className="text-sm text-gray-700 bg-transparent outline-none cursor-pointer w-full sm:w-auto">
+                                    {SORTS.map(s => (
                                         <option key={s.value} value={s.value}>{s.label}</option>
                                     ))}
                                 </select>
                             </div>
-
-                            {/* Clear all — two-step confirm */}
-                            <button
-                                onClick={handleClearAll}
-                                className={`flex items-center gap-1.5 text-sm font-semibold px-4 py-2
-                                    rounded-xl border-2 transition-all duration-200
+ 
+                            {/* Clear all */}
+                            <button onClick={handleClearAll}
+                                className={`flex items-center gap-1.5 text-sm font-semibold px-3 sm:px-4 py-2 rounded-xl border-2 transition-all duration-200 shrink-0
                                     ${confirming
                                         ? 'bg-red-500 border-red-500 text-white hover:bg-red-600'
-                                        : 'bg-white border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-500'}`}
-                            >
+                                        : 'bg-white border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-500'}`}>
                                 <TrashIcon className="w-3.5 h-3.5" />
-                                {confirming ? 'Tap again to confirm' : 'Clear all'}
+                                <span className="hidden sm:inline">{confirming ? 'Tap again to confirm' : 'Clear all'}</span>
                             </button>
                         </div>
                     )}
                 </div>
-
-                {/* ── STATS BANNER (shown when items exist) ── */}
+ 
+                {/* ── STATS BANNER — 1-col mobile → 3-col sm ── */}
                 {!loading && totalSaved > 0 && (
-                    <div className="grid grid-cols-3 gap-4 mb-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
                         {[
-                            {
-                                label: 'Items saved',
-                                value: totalSaved.toString(),
-                                icon: '❤️',
-                            },
-                            {
-                                label: 'Total value',
-                                value: `$${totalValue.toLocaleString()}`,
-                                icon: '💰',
-                            },
-                            {
-                                label: 'You\'re saving',
-                                value: totalSavings > 0 ? `$${totalSavings.toLocaleString()}` : '—',
-                                icon: '🏷️',
-                                highlight: totalSavings > 0,
-                            },
+                            { label: 'Items saved',    value: totalSaved.toString(),                                     icon: '❤️',  highlight: false },
+                            { label: 'Total value',    value: `$${totalValue.toLocaleString()}`,                         icon: '💰',  highlight: false },
+                            { label: "You're saving",  value: totalSavings > 0 ? `$${totalSavings.toLocaleString()}` : '—', icon: '🏷️', highlight: totalSavings > 0 },
                         ].map(({ label, value, icon, highlight }) => (
                             <div key={label}
-                                className={`bg-white rounded-2xl border px-6 py-4 shadow-sm flex items-center gap-4
+                                className={`bg-white rounded-2xl border px-5 sm:px-6 py-4 shadow-sm flex items-center gap-4
                                     ${highlight ? 'border-emerald-200' : 'border-gray-100'}`}>
                                 <span className="text-2xl">{icon}</span>
                                 <div>
-                                    <p className={`text-xl font-bold ${highlight ? 'text-emerald-600' : 'text-gray-900'}`}>
-                                        {value}
-                                    </p>
+                                    <p className={`text-xl font-bold ${highlight ? 'text-emerald-600' : 'text-gray-900'}`}>{value}</p>
                                     <p className="text-xs text-gray-400">{label}</p>
                                 </div>
                             </div>
                         ))}
                     </div>
                 )}
-
-                {/* ── LOADING SKELETON ── */}
+ 
+                {/* ── LOADING SKELETON — 2-col mobile → 4-col lg ── */}
                 {loading && (
-                    <div className="grid grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                         {Array.from({ length: 8 }).map((_, i) => (
-                            <div key={i}
-                                className="bg-white rounded-2xl border border-gray-100 h-72 animate-pulse"
-                                style={{ animationDelay: `${i * 60}ms` }}
-                            >
-                                <div className="bg-gray-100 h-44 rounded-t-2xl" />
-                                <div className="p-4 space-y-2">
+                            <div key={i} className="bg-white rounded-2xl border border-gray-100 h-64 sm:h-72 animate-pulse"
+                                style={{ animationDelay: `${i * 60}ms` }}>
+                                <div className="bg-gray-100 h-40 sm:h-44 rounded-t-2xl" />
+                                <div className="p-3 sm:p-4 space-y-2">
                                     <div className="bg-gray-100 h-3 rounded w-1/3" />
                                     <div className="bg-gray-100 h-4 rounded w-3/4" />
                                     <div className="bg-gray-100 h-3 rounded w-1/2" />
@@ -231,10 +204,10 @@ export default function WatchlistPage() {
                         ))}
                     </div>
                 )}
-
-                {/* ── DEVICE GRID ── */}
+ 
+                {/* ── DEVICE GRID — 2-col mobile → 4-col lg ── */}
                 {!loading && sorted.length > 0 && (
-                    <div className="grid grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                         {sorted.map((entry, i) => (
                             <WatchlistCard
                                 key={entry.id}
@@ -245,45 +218,31 @@ export default function WatchlistPage() {
                         ))}
                     </div>
                 )}
-
+ 
                 {/* ── EMPTY STATE ── */}
                 {!loading && entries.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-28 text-center">
-                        {/* Animated heart */}
-                        <div className="relative w-24 h-24 mb-6">
+                    <div className="flex flex-col items-center justify-center py-20 sm:py-28 text-center">
+                        <div className="relative w-20 sm:w-24 h-20 sm:h-24 mb-6">
                             <div className="absolute inset-0 rounded-full bg-red-100 animate-ping opacity-30" />
-                            <div className="relative w-24 h-24 rounded-full bg-red-50
-                                flex items-center justify-center">
-                                <HeartIcon className="w-12 h-12 text-red-300" />
+                            <div className="relative w-full h-full rounded-full bg-red-50 flex items-center justify-center">
+                                <HeartIcon className="w-10 sm:w-12 h-10 sm:h-12 text-red-300" />
                             </div>
                         </div>
-
-                        <h2 className="text-xl font-bold text-gray-800 mb-2">
-                            Your watchlist is empty
-                        </h2>
+                        <h2 className="text-xl font-bold text-gray-800 mb-2">Your watchlist is empty</h2>
                         <p className="text-sm text-gray-400 mb-8 max-w-xs leading-relaxed">
                             Tap the ♡ on any device to save it here. We&apos;ll keep track of prices for you.
                         </p>
-
-                        <Link
-                            href="/devices"
-                            className="inline-flex items-center gap-2 bg-teal-800 hover:bg-teal-700
-                                text-white font-semibold px-7 py-3.5 rounded-xl text-sm
-                                transition-all hover:-translate-y-0.5 hover:shadow-lg"
-                        >
+                        <Link href="/devices"
+                            className="inline-flex items-center gap-2 bg-teal-800 hover:bg-teal-700 text-white font-semibold px-7 py-3.5 rounded-xl text-sm transition-all hover:-translate-y-0.5 hover:shadow-lg">
                             Browse Devices
                             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                 <path d="m9 18 6-6-6-6" />
                             </svg>
                         </Link>
-
-                        {/* Suggestion chips */}
                         <div className="flex flex-wrap gap-2 justify-center mt-6">
-                            {['iPhones', 'MacBooks', 'Samsung', 'iPads'].map((tag) => (
+                            {['iPhones', 'MacBooks', 'Samsung', 'iPads'].map(tag => (
                                 <Link key={tag} href={`/devices?q=${tag}`}
-                                    className="text-xs font-medium text-gray-500 bg-white border border-gray-200
-                                        px-3 py-1.5 rounded-full hover:border-teal-400 hover:text-teal-700
-                                        transition-colors">
+                                    className="text-xs font-medium text-gray-500 bg-white border border-gray-200 px-3 py-1.5 rounded-full hover:border-teal-400 hover:text-teal-700 transition-colors">
                                     {tag}
                                 </Link>
                             ))}
@@ -291,17 +250,13 @@ export default function WatchlistPage() {
                     </div>
                 )}
             </div>
-
+ 
             <Footer />
-
+ 
             {/* ── TOAST ── */}
             {toast && (
-                <div className={`fixed bottom-7 right-7 z-50 px-5 py-3.5
-                    rounded-xl shadow-2xl flex items-center gap-3 text-sm font-medium
-                    animate-[fadeUp_.3s_ease_both] transition-all
-                    ${toast.type === 'err'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-900 text-white'}`}>
+                <div className={`fixed bottom-4 sm:bottom-7 right-4 sm:right-7 z-50 px-5 py-3.5 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-medium animate-[fadeUp_.3s_ease_both]
+                    ${toast.type === 'err' ? 'bg-red-600 text-white' : 'bg-gray-900 text-white'}`}>
                     <CheckCircleIcon className="w-5 h-5 text-emerald-400 shrink-0" />
                     {toast.msg}
                 </div>

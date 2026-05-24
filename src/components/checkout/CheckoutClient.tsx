@@ -30,6 +30,10 @@ import {
     ChevronLeftIcon,
     CheckCircleIcon,
 } from '@heroicons/react/24/outline'
+
+// Thêm Navbar và Footer để giữ nguyên layout responsive toàn trang
+import Navbar from '@/components/layout/Navbar'
+import Footer from '@/components/layout/Footer'
 import type { Device } from '@/types/device'
 import type { ShippingAddress } from '@/types/order'
 
@@ -120,119 +124,131 @@ export default function CheckoutClient({ device }: CheckoutClientProps) {
     }
 
     return (
-        <div className="max-w-[1100px] mx-auto px-6 py-10">
+        <div className="min-h-screen bg-[#F4F2EE]">
+            
+            {/* Navbar để duy trì Hamburger Menu, Mobile Drawer, v.v. */}
+            <Navbar />
 
-            {/* ── Progress bar ── */}
-            <div className="flex items-center gap-3 mb-8">
-                <StepBadge n={1} label="Shipping" active={step === 'shipping'} done={step === 'payment'} />
-                <div className={`flex-1 h-0.5 transition-colors duration-500 ${step === 'payment' ? 'bg-teal-600' : 'bg-gray-200'}`} />
-                <StepBadge n={2} label="Payment" active={step === 'payment'} done={false} />
-            </div>
+            <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
-            <div className="grid grid-cols-[1fr_380px] gap-8 items-start">
-
-                {/* ══ LEFT: form area ══ */}
-                <div>
-                    {step === 'shipping' && (
-                        <ShippingForm
-                            address={address}
-                            onChange={setAddress}
-                            onSubmit={handleShippingSubmit}
-                            submitting={submitting}
-                            error={error}
-                        />
-                    )}
-
-                    {step === 'payment' && clientSecret && orderId && (
-                        <Elements
-                            stripe={stripePromise}
-                            options={{ clientSecret, appearance: STRIPE_APPEARANCE }}
-                        >
-                            <StripePaymentForm
-                                orderId={orderId}
-                                onBack={() => setStep('shipping')}
-                            />
-                        </Elements>
-                    )}
+                {/* ── Progress bar ── */}
+                <div className="flex items-center gap-3 mb-6 sm:mb-8">
+                    <StepBadge n={1} label="Shipping" active={step === 'shipping'} done={step === 'payment'} />
+                    <div className={`flex-1 h-0.5 transition-colors duration-500 ${step === 'payment' ? 'bg-teal-600' : 'bg-gray-200'}`} />
+                    <StepBadge n={2} label="Payment" active={step === 'payment'} done={false} />
                 </div>
 
-                {/* ══ RIGHT: order summary (always visible) ══ */}
-                <aside className="sticky top-[78px]">
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {/* ── Main layout
+                      Mobile: form → summary (stacked)
+                      Desktop: [form 1fr] [summary 380px] side-by-side
+                ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 lg:gap-8 items-start">
 
-                        {/* Device thumb + name */}
-                        <div className="flex items-center gap-4 p-5 border-b border-gray-100">
-                            <div className="w-16 h-16 rounded-xl bg-gray-50 border border-gray-100
-                                flex items-center justify-center shrink-0 overflow-hidden">
-                                <Image
-                                    src={device.images[0]}
-                                    alt={device.fullName}
-                                    width={64} height={64}
-                                    className="w-full h-full object-contain p-1"
-                                    unoptimized
+                    {/* ══ LEFT: form area (order-1 on mobile) ══ */}
+                    <div className="order-1">
+                        {step === 'shipping' && (
+                            <ShippingForm
+                                address={address}
+                                onChange={setAddress}
+                                onSubmit={handleShippingSubmit}
+                                submitting={submitting}
+                                error={error}
+                            />
+                        )}
+
+                        {step === 'payment' && clientSecret && orderId && (
+                            <Elements
+                                stripe={stripePromise}
+                                options={{ clientSecret, appearance: STRIPE_APPEARANCE }}
+                            >
+                                <StripePaymentForm
+                                    orderId={orderId}
+                                    onBack={() => setStep('shipping')}
                                 />
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-[11px] font-bold text-teal-600 uppercase tracking-widest mb-0.5">
-                                    {device.brand}
-                                </p>
-                                <p className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">
-                                    {device.fullName}
-                                </p>
-                                <p className="text-xs text-gray-400 mt-0.5">
-                                    {device.storage} · Grade {device.grade}
-                                </p>
-                            </div>
-                        </div>
+                            </Elements>
+                        )}
+                    </div>
 
-                        {/* Price breakdown */}
-                        <div className="p-5 flex flex-col gap-3">
-                            <SummaryLine label="Device" value={`$${device.price}`} />
-                            <SummaryLine label="Shipping" value="Free" />
-                            <SummaryLine label="Platform fee" value="$0" muted />
+                    {/* ══ RIGHT: order summary (order-2 on mobile = below form; sticky on desktop) ══ */}
+                    <aside className="order-2 lg:sticky lg:top-[78px]">
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 
-                            <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
-                                <span className="text-sm font-bold text-gray-900">Total</span>
-                                <span className="text-xl font-bold text-gray-900">${device.price}</span>
-                            </div>
-
-                            {discount > 0 && (
-                                <p className="text-xs text-emerald-600 font-semibold text-center">
-                                    You save ${device.originalPrice - device.price} ({discount}% off)
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Trust badges */}
-                        <div className="border-t border-gray-100 px-5 py-4 flex flex-col gap-2.5">
-                            {[
-                                { icon: ShieldCheckIcon, text: 'Funds held in escrow until you approve' },
-                                { icon: TruckIcon, text: `Free shipping · ${device.shippingDays}` },
-                                { icon: ArrowPathIcon, text: '30-day hassle-free returns' },
-                            ].map(({ icon: Icon, text }) => (
-                                <div key={text} className="flex items-center gap-2.5 text-xs text-gray-500">
-                                    <Icon className="w-4 h-4 text-teal-600 shrink-0" />
-                                    {text}
+                            {/* Device thumb + name */}
+                            <div className="flex items-center gap-4 p-4 sm:p-5 border-b border-gray-100">
+                                <div className="w-16 h-16 rounded-xl bg-gray-50 border border-gray-100
+                                    flex items-center justify-center shrink-0 overflow-hidden">
+                                    <Image
+                                        src={device.images[0]}
+                                        alt={device.fullName}
+                                        width={64} height={64}
+                                        className="w-full h-full object-contain p-1"
+                                        unoptimized
+                                    />
                                 </div>
-                            ))}
-                        </div>
-                    </div>
+                                <div className="min-w-0">
+                                    <p className="text-[11px] font-bold text-teal-600 uppercase tracking-widest mb-0.5">
+                                        {device.brand}
+                                    </p>
+                                    <p className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">
+                                        {device.fullName}
+                                    </p>
+                                    <p className="text-xs text-gray-400 mt-0.5">
+                                        {device.storage} · Grade {device.grade}
+                                    </p>
+                                </div>
+                            </div>
 
-                    {/* Escrow explain */}
-                    <div className="mt-3 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3.5">
-                        <div className="flex items-start gap-2.5">
-                            <ShieldCheckIcon className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                            <div>
-                                <p className="text-xs font-bold text-emerald-900 mb-0.5">How escrow works</p>
-                                <p className="text-xs text-emerald-700 leading-relaxed">
-                                    Your payment is held securely — we only release it to the seller after
-                                    you inspect and approve the device within 5 days of delivery.
-                                </p>
+                            {/* Price breakdown */}
+                            <div className="p-4 sm:p-5 flex flex-col gap-3">
+                                <SummaryLine label="Device" value={`$${device.price}`} />
+                                <SummaryLine label="Shipping" value="Free" />
+                                <SummaryLine label="Platform fee" value="$0" muted />
+
+                                <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
+                                    <span className="text-sm font-bold text-gray-900">Total</span>
+                                    <span className="text-xl font-bold text-gray-900">${device.price}</span>
+                                </div>
+
+                                {discount > 0 && (
+                                    <p className="text-xs text-emerald-600 font-semibold text-center">
+                                        You save ${device.originalPrice - device.price} ({discount}% off)
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Trust badges */}
+                            <div className="border-t border-gray-100 px-4 sm:px-5 py-4 flex flex-col gap-2.5">
+                                {[
+                                    { icon: ShieldCheckIcon, text: 'Funds held in escrow until you approve' },
+                                    { icon: TruckIcon, text: `Free shipping · ${device.shippingDays}` },
+                                    { icon: ArrowPathIcon, text: '30-day hassle-free returns' },
+                                ].map(({ icon: Icon, text }) => (
+                                    <div key={text} className="flex items-center gap-2.5 text-xs text-gray-500">
+                                        <Icon className="w-4 h-4 text-teal-600 shrink-0" />
+                                        {text}
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                    </div>
-                </aside>
+
+                        {/* Escrow explain */}
+                        <div className="mt-3 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3.5">
+                            <div className="flex items-start gap-2.5">
+                                <ShieldCheckIcon className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-xs font-bold text-emerald-900 mb-0.5">How escrow works</p>
+                                    <p className="text-xs text-emerald-700 leading-relaxed">
+                                        Your payment is held securely — we only release it to the seller after
+                                        you inspect and approve the device within 5 days of delivery.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
             </div>
+
+            <Footer />
         </div>
     )
 }
@@ -262,11 +278,11 @@ function ShippingForm({
     }
 
     return (
-        <form onSubmit={onSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-7">
-            <h2 className="text-base font-bold text-gray-900 mb-6">Shipping information</h2>
+        <form onSubmit={onSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-7">
+            <h2 className="text-base font-bold text-gray-900 mb-5 sm:mb-6">Shipping information</h2>
 
-            {/* Name row */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            {/* Name row — 1-col mobile → 2-col sm */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <Field label="Full name" required>
                     <input
                         {...field('fullName')}
@@ -304,8 +320,8 @@ function ShippingForm({
                 />
             </Field>
 
-            {/* City / State / Postal */}
-            <div className="grid grid-cols-3 gap-4 mb-4">
+            {/* City / State / Postal — 1-col mobile → 3-col sm */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                 <Field label="City" required>
                     <input {...field('city')} placeholder="Ho Chi Minh City" required className={inputCls} />
                 </Field>
@@ -318,7 +334,7 @@ function ShippingForm({
             </div>
 
             {/* Country */}
-            <Field label="Country" required className="mb-6">
+            <Field label="Country" required className="mb-5 sm:mb-6">
                 <select {...field('country')} required className={inputCls}>
                     <option value="Vietnam">Vietnam</option>
                     <option value="Singapore">Singapore</option>
@@ -338,7 +354,7 @@ function ShippingForm({
             <button
                 type="submit"
                 disabled={submitting}
-                className="w-full h-[52px] bg-teal-800 hover:bg-teal-700 text-white font-bold
+                className="w-full h-[50px] sm:h-[52px] bg-teal-800 hover:bg-teal-700 text-white font-bold
                     rounded-xl text-[15px] flex items-center justify-center gap-2
                     transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60
                     disabled:cursor-wait disabled:translate-y-0"
@@ -412,8 +428,8 @@ function StripePaymentForm({
     }
 
     return (
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-7">
-            <div className="flex items-center justify-between mb-6">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-7">
+            <div className="flex items-center justify-between mb-5 sm:mb-6">
                 <h2 className="text-base font-bold text-gray-900">Payment details</h2>
                 <span className="flex items-center gap-1.5 text-xs text-gray-400 font-medium">
                     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -425,7 +441,7 @@ function StripePaymentForm({
             </div>
 
             {/* Stripe's Payment Element — handles card, wallets, BNPL etc. */}
-            <div className="mb-6">
+            <div className="mb-5 sm:mb-6">
                 <PaymentElement
                     options={{
                         layout: 'tabs',
@@ -450,7 +466,7 @@ function StripePaymentForm({
             <button
                 type="submit"
                 disabled={!stripe || !elements || submitting}
-                className="w-full h-[52px] bg-teal-800 hover:bg-teal-700 text-white font-bold
+                className="w-full h-[50px] sm:h-[52px] bg-teal-800 hover:bg-teal-700 text-white font-bold
                     rounded-xl text-[15px] flex items-center justify-center gap-2
                     transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60
                     disabled:cursor-wait disabled:translate-y-0"
@@ -518,7 +534,7 @@ function Field({
 
 function StepBadge({ n, label, active, done }: { n: number; label: string; active: boolean; done: boolean }) {
     return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
                 transition-all duration-300
                 ${done ? 'bg-teal-600 text-white' : active ? 'bg-teal-800 text-white' : 'bg-gray-200 text-gray-500'}`}>

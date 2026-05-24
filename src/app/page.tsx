@@ -1,6 +1,5 @@
-'use client';
-// src/app/pages/HomePage.tsx
-
+"use client";
+// src/app/page.tsx
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -17,7 +16,7 @@ const CATEGORIES = [
     { label: 'Tablets',     icon: '⬛', href: '/categories/tablets'     },
     { label: 'Smartwatches',icon: '⌚', href: '/categories/watches'     },
     { label: 'Earbuds',     icon: '🎧', href: '/categories/audio'       },
-]
+];
 
 // ──  trust points array ──────────────────────────────
 const TRUST_POINTS = [
@@ -41,18 +40,18 @@ const TRUST_POINTS = [
         title: '30-Day Returns',
         desc: 'Not happy? Return within 30 days, no questions asked.',
     },
-]
+];
 
 export default function HomePage() {
     // ── NEW: Supabase state (replaces the static FEATURED_DEVICES) ──
-    const [featuredDevices, setFeaturedDevices] = useState<Device[]>([])
-    const [loading, setLoading] = useState(true)
+    const [featuredDevices, setFeaturedDevices] = useState<Device[]>([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         getFeaturedDevices(8)
             .then(setFeaturedDevices)
-            .finally(() => setLoading(false))
-    }, [])
+            .finally(() => setLoading(false));
+    }, []);
     // ────────────────────────────────────────────────────────────────
 
     return (
@@ -60,13 +59,13 @@ export default function HomePage() {
             <Navbar />
 
             {/* ==================== HERO ==================== */}
-            <section className="bg-gradient-to-br from-teal-900 via-teal-800 to-teal-700 pt-28 pb-24 px-6">
-                <div className="max-w-[1160px] mx-auto flex items-center gap-16">
-                    <div className="flex-1 max-w-xl">
+            <section className="bg-gradient-to-br from-teal-900 via-teal-800 to-teal-700 pt-16 sm:pt-20 lg:pt-28 pb-16 sm:pb-20 lg:pb-24 px-4 sm:px-6">
+                <div className="max-w-[1160px] mx-auto">
+                    <div className="max-w-xl">
                         <span className="inline-block text-xs font-bold text-teal-300 tracking-widest uppercase mb-4">
                             Vietnam&apos;s Trusted Marketplace
                         </span>
-                        <h1 className="text-5xl font-black text-white leading-[1.1] mb-5">
+                        <h1 className="text-4xl sm:text-5xl font-black text-white leading-[1.1] mb-5">
                             Buy & Sell<br />
                             <span className="text-teal-300">Second-Hand</span><br />
                             Tech Safely.
@@ -74,18 +73,25 @@ export default function HomePage() {
                         <p className="text-teal-100 text-base leading-relaxed mb-8">
                             Real phones, real sellers, real peace of mind.
                         </p>
-                        <div className="flex gap-3">
-                            <Link href="/devices" className="bg-teal-800 hover:bg-teal-700 text-white font-bold px-7 py-3.5 rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-lg text-sm">
+                        <div className="flex flex-wrap gap-3">
+                            <Link href="/devices"
+                                className="bg-teal-800 hover:bg-teal-700 text-white font-bold px-6 sm:px-7 py-3.5 rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-lg text-sm">
                                 Browse Devices
                             </Link>
-                            <Link href="/sell" className="bg-white border-2 border-gray-200 hover:border-teal-400 text-gray-700 hover:text-teal-700 font-semibold px-7 py-3.5 rounded-xl transition-all text-sm">
+                            <Link href="/sell"
+                                className="bg-white border-2 border-gray-200 hover:border-teal-400 text-gray-700 hover:text-teal-700 font-semibold px-6 sm:px-7 py-3.5 rounded-xl transition-all text-sm">
                                 + Sell a Device
                             </Link>
                         </div>
-                        <div className="flex gap-8 mt-9">
-                            {[{ value: '2,400+', label: 'Devices listed' }, { value: '98%', label: 'Satisfaction rate' }, { value: '< 1hr', label: 'Avg. response' }].map(s => (
+                        {/* Stats row */}
+                        <div className="flex gap-6 sm:gap-8 mt-9">
+                            {[
+                                { value: '2,400+', label: 'Devices listed'   },
+                                { value: '98%',    label: 'Satisfaction rate' },
+                                { value: '< 1hr',  label: 'Avg. response'    },
+                            ].map(s => (
                                 <div key={s.label}>
-                                    <div className="text-2xl font-black text-white">{s.value}</div>
+                                    <div className="text-xl sm:text-2xl font-black text-white">{s.value}</div>
                                     <div className="text-xs text-teal-300 mt-0.5">{s.label}</div>
                                 </div>
                             ))}
@@ -95,15 +101,17 @@ export default function HomePage() {
             </section>
 
             {/* ==================== CATEGORIES ==================== */}
-            <section className="py-6 bg-white border-y border-gray-100 shadow-sm">
-                <div className="max-w-[1160px] mx-auto px-6">
+            <section className="py-5 sm:py-6 bg-white border-y border-gray-100 shadow-sm">
+                <div className="max-w-[1160px] mx-auto px-4 sm:px-6">
                     <div className="flex items-center gap-3 overflow-x-auto scrollbar-none">
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest shrink-0 mr-2">Browse by</span>
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest shrink-0 mr-2">
+                            Browse by
+                        </span>
                         {CATEGORIES.map(({ label, icon, href }) => (
                             <Link key={label} href={href}
-                                className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200
-                                           hover:border-teal-400 hover:bg-teal-50 hover:text-teal-800
-                                           text-sm font-medium text-gray-600 transition-all whitespace-nowrap shrink-0">
+                                className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full border border-gray-200
+                                    hover:border-teal-400 hover:bg-teal-50 hover:text-teal-800
+                                    text-sm font-medium text-gray-600 transition-all whitespace-nowrap shrink-0">
                                 <span>{icon}</span>{label}
                             </Link>
                         ))}
@@ -112,26 +120,29 @@ export default function HomePage() {
             </section>
 
             {/* ==================== FEATURED DEVICES ==================== */}
-            <section className="py-14">
-                <div className="max-w-[1160px] mx-auto px-6">
+            <section className="py-10 sm:py-14">
+                <div className="max-w-[1160px] mx-auto px-4 sm:px-6">
                     <div className="flex items-center justify-between mb-6">
                         <div>
-                            <h2 className="text-2xl font-bold text-gray-900">Featured Devices</h2>
+                            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Featured Devices</h2>
                             <p className="text-sm text-gray-400 mt-1">Hand-picked, verified, and ready to ship</p>
                         </div>
-                        <Link href="/devices" className="text-sm font-semibold text-teal-700 hover:text-teal-900 flex items-center gap-1 transition-colors">
+                        <Link href="/devices"
+                            className="text-sm font-semibold text-teal-700 hover:text-teal-900 flex items-center gap-1 transition-colors shrink-0">
                             View all
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m9 18 6-6-6-6" /></svg>
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="m9 18 6-6-6-6" />
+                            </svg>
                         </Link>
                     </div>
 
-                    {/* ── Loading skeleton ── */}
+                    {/* Loading skeleton — 2-col on mobile, 4-col on lg */}
                     {loading && (
-                        <div className="grid grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                             {Array.from({ length: 8 }).map((_, i) => (
-                                <div key={i} className="bg-white rounded-2xl border border-gray-100 h-72 animate-pulse">
-                                    <div className="bg-gray-100 h-44 rounded-t-2xl" />
-                                    <div className="p-4 space-y-2">
+                                <div key={i} className="bg-white rounded-2xl border border-gray-100 h-64 sm:h-72 animate-pulse">
+                                    <div className="bg-gray-100 h-40 sm:h-44 rounded-t-2xl" />
+                                    <div className="p-3 sm:p-4 space-y-2">
                                         <div className="bg-gray-100 h-3 rounded w-1/3" />
                                         <div className="bg-gray-100 h-4 rounded w-3/4" />
                                         <div className="bg-gray-100 h-3 rounded w-1/2" />
@@ -141,14 +152,14 @@ export default function HomePage() {
                         </div>
                     )}
 
-                    {/* ── Grid — DeviceCard is UNCHANGED ── */}
+                    {/* Device grid — 2-col on mobile, 4-col on lg */}
                     {!loading && featuredDevices.length > 0 && (
-                        <div className="grid grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                             {featuredDevices.map(d => <DeviceCard key={d.id} device={d} />)}
                         </div>
                     )}
 
-                    {/* ── Empty state ── */}
+                    {/* Empty state */}
                     {!loading && featuredDevices.length === 0 && (
                         <div className="text-center py-20 text-gray-400">
                             <p className="text-lg">No featured devices yet.</p>
@@ -159,13 +170,19 @@ export default function HomePage() {
             </section>
 
             {/* ==================== TRUST SECTION ==================== */}
-            <section className="py-16 bg-white border-t border-gray-100">
-                <div className="max-w-[1160px] mx-auto px-6">
-                    <h2 className="text-2xl font-bold text-gray-900 text-center mb-10">Why Go2Hand?</h2>
-                    <div className="grid grid-cols-4 gap-6">
+            <section className="py-12 sm:py-16 bg-white border-t border-gray-100">
+                <div className="max-w-[1160px] mx-auto px-4 sm:px-6">
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 text-center mb-8 sm:mb-10">
+                        Why Go2Hand?
+                    </h2>
+                    {/* 1-col mobile → 2-col sm → 4-col lg */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                         {TRUST_POINTS.map(({ icon, title, desc }) => (
-                            <div key={title} className="flex flex-col items-start gap-3 p-6 rounded-2xl bg-gray-50 border border-gray-100">
-                                <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center">{icon}</div>
+                            <div key={title} className="flex flex-col items-start gap-3 p-5 sm:p-6
+                                rounded-2xl bg-gray-50 border border-gray-100">
+                                <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center">
+                                    {icon}
+                                </div>
                                 <h3 className="font-bold text-gray-900 text-sm">{title}</h3>
                                 <p className="text-xs text-gray-500 leading-relaxed">{desc}</p>
                             </div>
@@ -176,5 +193,5 @@ export default function HomePage() {
 
             <Footer />
         </div>
-    )
+    );
 }
