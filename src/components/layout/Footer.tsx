@@ -1,20 +1,18 @@
 // ============================================
-// FOOTER — Shared across all pages
-// Usage: import Footer from '@/components/Footer'
-//        then just put <Footer /> at bottom
+// FOOTER — Responsive: stacks on mobile, full grid on lg
 // ============================================
 
 import Link from "next/link";
- 
+
 const FOOTER_COLS = [
     {
         title: "Buy",
         links: [
-            { label: "Browse Phones",   href: "/categories/smartphones" }, // was /devices?category=smartphones
-            { label: "Browse Laptops",  href: "/categories/laptops"     }, // was /devices?category=laptops
-            { label: "Browse Tablets",  href: "/categories/tablets"     }, // was /devices?category=tablets
-            { label: "How Escrow Works", href: "/how-it-works"          },
-            { label: "Buyer Protection", href: "/buyer-protection"      },
+            { label: "Browse Phones",    href: "/categories/smartphones" },
+            { label: "Browse Laptops",   href: "/categories/laptops"     },
+            { label: "Browse Tablets",   href: "/categories/tablets"     },
+            { label: "How Escrow Works", href: "/how-it-works"           },
+            { label: "Buyer Protection", href: "/buyer-protection"       },
         ],
     },
     {
@@ -30,22 +28,22 @@ const FOOTER_COLS = [
     {
         title: "Company",
         links: [
-            { label: "About Us",    href: "/about"   },
-            { label: "Trust & Safety", href: "/trust" },
-            { label: "FAQ",         href: "/faq"     },
-            { label: "Contact",     href: "/contact" },
-            { label: "Blog",        href: "/blog"    },
+            { label: "About Us",      href: "/about"   },
+            { label: "Trust & Safety",href: "/trust"   },
+            { label: "FAQ",           href: "/faq"     },
+            { label: "Contact",       href: "/contact" },
+            { label: "Blog",          href: "/blog"    },
         ],
     },
 ];
- 
+
 export default function Footer() {
     return (
         <footer className="bg-gray-900 text-gray-400">
-            <div
-                className="max-w-[1160px] mx-auto px-6 pt-12 pb-8
-                      grid grid-cols-[2fr_1fr_1fr_1fr] gap-10"
-            >
+            {/* Main grid: stacks on mobile → 2-col on sm → 4-col on lg */}
+            <div className="max-w-[1160px] mx-auto px-4 sm:px-6 pt-12 pb-8
+                grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-10">
+
                 {/* Brand block */}
                 <div>
                     <div className="flex items-center gap-2 mb-4">
@@ -58,13 +56,13 @@ export default function Footer() {
                             Go2 <span className="text-amber-400">Hand</span>
                         </span>
                     </div>
- 
+
                     <p className="text-sm leading-relaxed text-gray-400 max-w-xs">
                         Vietnam&apos;s most trusted marketplace for pre-owned devices. Every
                         device verified, every transaction protected.
                     </p>
- 
-                    <div className="flex gap-3 mt-5">
+
+                    <div className="flex flex-wrap gap-3 mt-5">
                         <div className="flex items-center gap-1.5 bg-gray-800 px-3 py-1.5 rounded-lg">
                             <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -79,7 +77,8 @@ export default function Footer() {
                         </div>
                     </div>
                 </div>
- 
+
+                {/* Link columns */}
                 {FOOTER_COLS.map(({ title, links }) => (
                     <div key={title}>
                         <p className="text-white text-xs font-bold uppercase tracking-widest mb-4">
@@ -98,14 +97,16 @@ export default function Footer() {
                     </div>
                 ))}
             </div>
- 
-            <div className="max-w-[1160px] mx-auto px-6 py-5
-                      border-t border-gray-800
-                      flex items-center justify-between text-xs text-gray-500">
+
+            {/* Bottom bar: stacks on mobile, row on sm */}
+            <div className="max-w-[1160px] mx-auto px-4 sm:px-6 py-5
+                border-t border-gray-800
+                flex flex-col sm:flex-row items-start sm:items-center
+                justify-between gap-3 text-xs text-gray-500">
                 <span>© 2025 Go2Hand. All rights reserved.</span>
                 <div className="flex gap-4">
                     <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
-                    <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+                    <Link href="/terms"   className="hover:text-white transition-colors">Terms of Service</Link>
                 </div>
             </div>
         </footer>
