@@ -1,24 +1,24 @@
 "use client";
 
-// ============================================
-// NAVBAR — src/components/layout/Navbar.tsx
-//
-// Responsive: desktop full nav, mobile hamburger + drawer
-// Week 6 update: Added cart icon with live
-// badge count between the notification bell
-// and the watchlist heart.
-// ============================================
+// src/components/layout/Navbar.tsx
+// ─────────────────────────────────────────────────────────────────
+// Week 7 update: Sign Out button now calls actionSignOut().
+// User info is still hardcoded (dynamic session display comes in
+// a future week once the full auth context hook is built).
+// ─────────────────────────────────────────────────────────────────
 
 import Link from "next/link";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
     HeartIcon, BellIcon, ChevronDownIcon, UserCircleIcon,
     ClipboardDocumentListIcon, ShoppingBagIcon, Cog6ToothIcon,
     ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon, MagnifyingGlassIcon,
-    ShoppingCartIcon,   // ← NEW: cart icon from heroicons
+    ShoppingCartIcon,
 } from '@heroicons/react/24/outline';
 import SearchBar from "@/components/layout/SearchBar";
 import { useCart } from "@/context/CartContext";
+import { actionSignOut } from "@/actions/auth";
 
 const CATEGORIES = [
     { icon: '📱', label: 'Smartphones', href: '/categories/smartphones', desc: '1,200+ listings' },
@@ -38,15 +38,16 @@ const USER_MENU = [
 ];
 
 export default function Navbar() {
-    const [userMenuOpen,    setUserMenuOpen]    = useState(false);
-    const [mobileMenuOpen,  setMobileMenuOpen]  = useState(false);
+    const router = useRouter();
+    const [userMenuOpen,     setUserMenuOpen]     = useState(false);
+    const [mobileMenuOpen,   setMobileMenuOpen]   = useState(false);
     const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+    const [signingOut,       setSigningOut]        = useState(false);
     const userMenuRef = useRef<HTMLDivElement>(null);
 
-    // Live cart count from context — updates badge instantly
     const { count: cartCount } = useCart();
 
-    // Close user dropdown when clicking outside
+    // ── Close user dropdown on outside click ──────────────────────
     useEffect(() => {
         function onMouseDown(e: MouseEvent) {
             if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
@@ -57,13 +58,31 @@ export default function Navbar() {
         return () => document.removeEventListener('mousedown', onMouseDown);
     }, []);
 
-    // Lock body scroll while mobile menu is open
+    // ── Lock body scroll while mobile menu is open ────────────────
     useEffect(() => {
         document.body.style.overflow = mobileMenuOpen ? 'hidden' : '';
         return () => { document.body.style.overflow = ''; };
     }, [mobileMenuOpen]);
 
     function closeMobileMenu() { setMobileMenuOpen(false); }
+
+    // ── Sign out handler ──────────────────────────────────────────
+    const handleSignOut = useCallback(async () => {
+        setSigningOut(true);
+        setUserMenuOpen(false);
+        closeMobileMenu();
+
+        const result = await actionSignOut();
+
+        if (result.success) {
+            // Refresh to let middleware + server components clear session state.
+            router.push('/');
+            router.refresh();
+        } else {
+            console.error('Sign out failed:', result.error);
+        }
+        setSigningOut(false);
+    }, [router]);
 
     return (
         <>
@@ -82,7 +101,7 @@ export default function Navbar() {
                         </span>
                     </Link>
 
-                    {/* ── Search bar — desktop only ── */}
+                    {/* ── Search bar — desktop ── */}
                     <div className="hidden md:flex flex-1 max-w-[460px]">
                         <SearchBar />
                     </div>
@@ -151,34 +170,21 @@ export default function Navbar() {
                                 rounded-full border-2 border-white" />
                         </button>
 
-                        {/* ── Cart icon (NEW) ── */}
-                        <Link
-                            href="/cart"
-                            aria-label={`Cart — ${cartCount} item${cartCount !== 1 ? "s" : ""}`}
+                        {/* Cart icon */}
+                        <Link href="/cart"
+                            aria-label={`Cart — ${cartCount} item${cartCount !== 1 ? 's' : ''}`}
                             className="relative w-9 h-9 flex items-center justify-center rounded-full
                                 border border-gray-200 hover:border-teal-400 hover:bg-teal-50
-                                transition-all duration-150 group"
-                        >
+                                transition-all duration-150 group">
                             <ShoppingCartIcon className="w-[18px] h-[18px] text-gray-500
                                 group-hover:text-teal-600 transition-colors" />
-
-                            {/* Badge */}
-                            <span
-                                className={`
-                                    absolute -top-1 -right-1
-                                    min-w-[16px] h-4 px-1
-                                    bg-teal-700 text-white text-[9px] font-bold
-                                    rounded-full flex items-center justify-center
-                                    border-2 border-white
-                                    transition-all duration-200 ease-out
-                                    ${cartCount > 0
-                                        ? "opacity-100 scale-100"
-                                        : "opacity-0 scale-50 pointer-events-none"
-                                    }
-                                `}
-                                aria-hidden="true"
-                            >
-                                {cartCount > 99 ? "99+" : cartCount}
+                            <span className={`absolute -top-1 -right-1 min-w-[16px] h-4 px-1
+                                bg-teal-700 text-white text-[9px] font-bold rounded-full
+                                flex items-center justify-center border-2 border-white
+                                transition-all duration-200 ease-out
+                                ${cartCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'}`}
+                                aria-hidden="true">
+                                {cartCount > 99 ? '99+' : cartCount}
                             </span>
                         </Link>
 
@@ -188,17 +194,14 @@ export default function Navbar() {
                                 border border-gray-200 hover:border-teal-400 hover:bg-teal-50
                                 transition-colors" aria-label="Watchlist">
                             <HeartIcon className="w-[18px] h-[18px] text-gray-500" />
-                            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1
-                                bg-amber-500 text-white text-[9px] font-bold rounded-full
-                                flex items-center justify-center border-2 border-white">
-                                3
-                            </span>
                         </Link>
 
                         {/* Avatar + user dropdown */}
                         <div ref={userMenuRef} className="relative ml-1">
-                            <button onClick={() => setUserMenuOpen(o => !o)}
-                                aria-expanded={userMenuOpen} aria-label="User menu"
+                            <button
+                                onClick={() => setUserMenuOpen(o => !o)}
+                                aria-expanded={userMenuOpen}
+                                aria-label="User menu"
                                 className={`flex items-center gap-1.5 rounded-full pl-0.5 pr-2.5 py-0.5
                                     border transition-all duration-150
                                     ${userMenuOpen
@@ -236,11 +239,25 @@ export default function Navbar() {
                                         ))}
                                     </div>
                                     <div className="border-t border-gray-100 pt-1.5 pb-1">
-                                        <button onClick={() => setUserMenuOpen(false)}
+                                        {/* ── Real sign-out button ── */}
+                                        <button
+                                            onClick={handleSignOut}
+                                            disabled={signingOut}
                                             className="flex items-center gap-3 w-full px-4 py-2.5
-                                                text-sm text-red-500 hover:bg-red-50 transition-colors">
-                                            <ArrowRightOnRectangleIcon className="w-4 h-4 shrink-0" />
-                                            Sign Out
+                                                text-sm text-red-500 hover:bg-red-50 transition-colors
+                                                disabled:opacity-60 disabled:cursor-wait">
+                                            {signingOut ? (
+                                                <svg className="w-4 h-4 animate-spin shrink-0"
+                                                    viewBox="0 0 24 24" fill="none">
+                                                    <circle cx="12" cy="12" r="10" stroke="currentColor"
+                                                        strokeWidth="3" strokeOpacity=".3"/>
+                                                    <path d="M12 2a10 10 0 0 1 10 10"
+                                                        stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                                                </svg>
+                                            ) : (
+                                                <ArrowRightOnRectangleIcon className="w-4 h-4 shrink-0" />
+                                            )}
+                                            {signingOut ? 'Signing out…' : 'Sign Out'}
                                         </button>
                                     </div>
                                 </div>
@@ -250,7 +267,6 @@ export default function Navbar() {
 
                     {/* ── Mobile right actions ── */}
                     <div className="flex md:hidden items-center gap-1 shrink-0">
-                        {/* Search icon toggle */}
                         <button
                             onClick={() => setMobileSearchOpen(o => !o)}
                             className="w-9 h-9 flex items-center justify-center rounded-full
@@ -259,42 +275,28 @@ export default function Navbar() {
                             <MagnifyingGlassIcon className="w-[18px] h-[18px] text-gray-500" />
                         </button>
 
-                        {/* Mobile Cart icon */}
-                        <Link
-                            href="/cart"
+                        <Link href="/cart"
                             aria-label={`Cart — ${cartCount} items`}
                             className="relative w-9 h-9 flex items-center justify-center rounded-full
-                                border border-gray-200 hover:border-teal-400 transition-colors"
-                        >
+                                border border-gray-200 hover:border-teal-400 transition-colors">
                             <ShoppingCartIcon className="w-[18px] h-[18px] text-gray-500" />
-                            <span
-                                className={`
-                                    absolute -top-1 -right-1
-                                    min-w-[16px] h-4 px-1
-                                    bg-teal-700 text-white text-[9px] font-bold
-                                    rounded-full flex items-center justify-center
-                                    border-2 border-white
-                                    transition-all duration-200 ease-out
-                                    ${cartCount > 0 ? "opacity-100 scale-100" : "opacity-0 scale-50 pointer-events-none"}
-                                `}
-                                aria-hidden="true"
-                            >
-                                {cartCount > 99 ? "99+" : cartCount}
+                            <span className={`absolute -top-1 -right-1 min-w-[16px] h-4 px-1
+                                bg-teal-700 text-white text-[9px] font-bold rounded-full
+                                flex items-center justify-center border-2 border-white
+                                transition-all duration-200 ease-out
+                                ${cartCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'}`}
+                                aria-hidden="true">
+                                {cartCount > 99 ? '99+' : cartCount}
                             </span>
                         </Link>
 
-                        {/* Watchlist */}
                         <Link href="/watchlist"
                             className="relative w-9 h-9 flex items-center justify-center rounded-full
                                 border border-gray-200 hover:border-teal-400 transition-colors"
                             aria-label="Watchlist">
                             <HeartIcon className="w-[18px] h-[18px] text-gray-500" />
-                            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1
-                                bg-amber-500 text-white text-[9px] font-bold rounded-full
-                                flex items-center justify-center border-2 border-white">3</span>
                         </Link>
 
-                        {/* Hamburger */}
                         <button
                             onClick={() => setMobileMenuOpen(true)}
                             className="w-9 h-9 flex items-center justify-center rounded-full
@@ -305,7 +307,7 @@ export default function Navbar() {
                     </div>
                 </div>
 
-                {/* ── Mobile search bar (expands below navbar) ── */}
+                {/* ── Mobile search expander ── */}
                 {mobileSearchOpen && (
                     <div className="md:hidden px-4 pb-3 pt-1 border-t border-gray-100 bg-white">
                         <SearchBar />
@@ -313,27 +315,21 @@ export default function Navbar() {
                 )}
             </nav>
 
-            {/* ── Mobile menu backdrop ── */}
+            {/* ── Mobile backdrop ── */}
             {mobileMenuOpen && (
-                <div
-                    className="fixed inset-0 z-50 bg-black/50 md:hidden"
-                    onClick={closeMobileMenu}
-                    aria-hidden="true"
-                />
+                <div className="fixed inset-0 z-50 bg-black/50 md:hidden"
+                    onClick={closeMobileMenu} aria-hidden="true" />
             )}
 
-            {/* ── Mobile menu drawer (slides in from right) ── */}
-            <div className={`
-                fixed top-0 right-0 bottom-0 z-50 w-[300px] bg-white shadow-2xl
+            {/* ── Mobile drawer ── */}
+            <div className={`fixed top-0 right-0 bottom-0 z-50 w-[300px] bg-white shadow-2xl
                 overflow-y-auto flex flex-col md:hidden
                 transition-transform duration-300 ease-out
-                ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}
-            `}>
-                {/* Drawer header */}
+                ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
                     <span className="font-bold text-gray-900">Menu</span>
-                    <button
-                        onClick={closeMobileMenu}
+                    <button onClick={closeMobileMenu}
                         className="w-8 h-8 flex items-center justify-center rounded-full
                             text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
                         aria-label="Close menu">
@@ -341,7 +337,6 @@ export default function Navbar() {
                     </button>
                 </div>
 
-                {/* User info */}
                 <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-600 to-emerald-500
                         flex items-center justify-center text-white text-sm font-bold shrink-0">AJ</div>
@@ -351,7 +346,6 @@ export default function Navbar() {
                     </div>
                 </div>
 
-                {/* Sell CTA */}
                 <div className="px-5 py-4 border-b border-gray-100">
                     <Link href="/sell" onClick={closeMobileMenu}
                         className="flex items-center justify-center gap-2 bg-teal-800 text-white
@@ -361,7 +355,6 @@ export default function Navbar() {
                     </Link>
                 </div>
 
-                {/* Browse categories */}
                 <div className="px-5 py-4 border-b border-gray-100">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Browse</p>
                     <div className="flex flex-col gap-0.5">
@@ -382,7 +375,6 @@ export default function Navbar() {
                     </div>
                 </div>
 
-                {/* Account menu */}
                 <div className="px-5 py-4 flex-1">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Account</p>
                     <div className="flex flex-col gap-0.5">
@@ -394,17 +386,29 @@ export default function Navbar() {
                                 {label}
                             </Link>
                         ))}
+
+                        {/* ── Real sign-out in mobile drawer ── */}
                         <button
-                            onClick={closeMobileMenu}
+                            onClick={handleSignOut}
+                            disabled={signingOut}
                             className="flex items-center gap-3 w-full px-2 py-2.5 rounded-xl text-sm
-                                text-red-500 hover:bg-red-50 transition-colors mt-2">
-                            <ArrowRightOnRectangleIcon className="w-4 h-4 shrink-0" />
-                            Sign Out
+                                text-red-500 hover:bg-red-50 transition-colors mt-2
+                                disabled:opacity-60 disabled:cursor-wait">
+                            {signingOut ? (
+                                <svg className="w-4 h-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor"
+                                        strokeWidth="3" strokeOpacity=".3"/>
+                                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor"
+                                        strokeWidth="3" strokeLinecap="round"/>
+                                </svg>
+                            ) : (
+                                <ArrowRightOnRectangleIcon className="w-4 h-4 shrink-0" />
+                            )}
+                            {signingOut ? 'Signing out…' : 'Sign Out'}
                         </button>
                     </div>
                 </div>
 
-                {/* Notification bell row */}
                 <div className="px-5 py-4 border-t border-gray-100 shrink-0">
                     <Link href="/notifications" onClick={closeMobileMenu}
                         className="flex items-center gap-3 px-2 py-2.5 rounded-xl text-sm
