@@ -2,6 +2,7 @@
 // ─────────────────────────────────────────────────────────────────
 // Fetches data from Supabase and maps it to the Device type.
 // Week 5 update: getDeviceById now fetches real reviews.
+// Week 8 update: ListingFilters gains `sellerId` for profile page.
 // ─────────────────────────────────────────────────────────────────
 import { supabase } from '@/lib/supabaseClient'
 import type { Device, Seller } from '@/types/device'
@@ -99,8 +100,7 @@ function mapProduct(row: any): Device {
         conditionChecks: [],
         specs: deviceSpecs,
         seller,
-        // Reviews are populated separately in getDeviceById for the detail page.
-        // For list views (getFeaturedDevices, getDevices) we leave them empty
+        // Reviews populated separately in getDeviceById — empty for list views
         // to avoid N+1 queries on every card.
         reviews: [],
         totalReviews: 0,
@@ -162,6 +162,8 @@ export interface ListingFilters {
     limit?: number
     storage?: string
     ram?: string
+    /** Filter by seller user ID — used on the public profile page */
+    sellerId?: string
 }
 
 /** Paginated product listing with filters */
@@ -173,6 +175,7 @@ export async function getDevices(
         minPrice, maxPrice, search,
         sortBy = 'newest', page = 1, limit = 20,
         storage, ram,
+        sellerId,   // ← seller filter for profile page
     } = filters
 
     let query = supabase
@@ -186,6 +189,7 @@ export async function getDevices(
     if (search)    query = query.ilike('title', `%${search}%`)
     if (storage)   query = query.eq('storage_capacity', storage)
     if (ram)       query = query.filter('specs->>ram', 'ilike', `%${ram}%`)
+    if (sellerId)  query = query.eq('seller_id', sellerId)   // ← NEW
 
     if (category) {
         const { data: cat } = await supabase
