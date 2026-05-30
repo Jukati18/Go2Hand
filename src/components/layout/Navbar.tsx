@@ -1,11 +1,6 @@
 "use client";
 
 // src/components/layout/Navbar.tsx
-// ─────────────────────────────────────────────────────────────────
-// Week 7 update: Sign Out button now calls actionSignOut().
-// User info is still hardcoded (dynamic session display comes in
-// a future week once the full auth context hook is built).
-// ─────────────────────────────────────────────────────────────────
 
 import Link from "next/link";
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -14,7 +9,7 @@ import {
     HeartIcon, BellIcon, ChevronDownIcon, UserCircleIcon,
     ClipboardDocumentListIcon, ShoppingBagIcon, Cog6ToothIcon,
     ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon, MagnifyingGlassIcon,
-    ShoppingCartIcon,
+    ShoppingCartIcon, ChatBubbleLeftEllipsisIcon,
 } from '@heroicons/react/24/outline';
 import SearchBar from "@/components/layout/SearchBar";
 import { useCart } from "@/context/CartContext";
@@ -29,12 +24,18 @@ const CATEGORIES = [
     { icon: '🖥️', label: 'Desktops',   href: '/categories/desktops',    desc: '60+ listings'   },
 ];
 
-const USER_MENU = [
-    { icon: UserCircleIcon,            label: 'My Profile',  href: '/profile'             },
-    { icon: ClipboardDocumentListIcon, label: 'My Listings', href: '/dashboard/listings'  },
-    { icon: ShoppingBagIcon,           label: 'My Orders',   href: '/dashboard/orders'    },
-    { icon: HeartIcon,                 label: 'Watchlist',   href: '/watchlist'           },
-    { icon: Cog6ToothIcon,             label: 'Settings',    href: '/settings'            },
+// ── Dropdown menu — split into Buyer and Seller sections ──────────
+const BUYER_MENU = [
+    { icon: UserCircleIcon,            label: 'My Profile',      href: '/profile'           },
+    { icon: ShoppingBagIcon,           label: 'My Purchases',    href: '/dashboard/buyer'   },
+    { icon: HeartIcon,                 label: 'Watchlist',       href: '/watchlist'         },
+    { icon: ChatBubbleLeftEllipsisIcon,label: 'Messages',        href: '/dashboard/messages'},
+];
+
+const SELLER_MENU = [
+    { icon: ClipboardDocumentListIcon, label: 'My Listings',     href: '/dashboard/listings'},
+    { icon: ShoppingBagIcon,           label: 'Seller Dashboard',href: '/dashboard'         },
+    { icon: Cog6ToothIcon,             label: 'Settings',        href: '/settings'          },
 ];
 
 export default function Navbar() {
@@ -75,7 +76,6 @@ export default function Navbar() {
         const result = await actionSignOut();
 
         if (result.success) {
-            // Refresh to let middleware + server components clear session state.
             router.push('/');
             router.refresh();
         } else {
@@ -170,6 +170,16 @@ export default function Navbar() {
                                 rounded-full border-2 border-white" />
                         </button>
 
+                        {/* Messages icon — quick link */}
+                        <Link href="/dashboard/messages"
+                            aria-label="Messages"
+                            className="relative w-9 h-9 flex items-center justify-center rounded-full
+                                border border-gray-200 hover:border-teal-400 hover:bg-teal-50
+                                transition-all duration-150 group">
+                            <ChatBubbleLeftEllipsisIcon className="w-[18px] h-[18px] text-gray-500
+                                group-hover:text-teal-600 transition-colors" />
+                        </Link>
+
                         {/* Cart icon */}
                         <Link href="/cart"
                             aria-label={`Cart — ${cartCount} item${cartCount !== 1 ? 's' : ''}`}
@@ -215,9 +225,11 @@ export default function Navbar() {
                             </button>
 
                             {userMenuOpen && (
-                                <div className="absolute top-[calc(100%+8px)] right-0 w-52
+                                <div className="absolute top-[calc(100%+8px)] right-0 w-56
                                     bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50
                                     animate-[fadeDown_.15s_ease_both]">
+
+                                    {/* User info */}
                                     <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
                                         <div className="w-9 h-9 rounded-full bg-gradient-to-br
                                             from-teal-600 to-emerald-500 flex items-center justify-center
@@ -227,8 +239,12 @@ export default function Navbar() {
                                             <p className="text-xs text-gray-400 truncate">alex@email.com</p>
                                         </div>
                                     </div>
-                                    <div className="py-1.5">
-                                        {USER_MENU.map(({ icon: Icon, label, href }) => (
+
+                                    {/* Buyer section */}
+                                    <div className="pt-1.5 pb-1">
+                                        <p className="text-[9px] font-bold text-gray-300 uppercase
+                                            tracking-widest px-4 py-1.5">Buying</p>
+                                        {BUYER_MENU.map(({ icon: Icon, label, href }) => (
                                             <Link key={label} href={href}
                                                 onClick={() => setUserMenuOpen(false)}
                                                 className="flex items-center gap-3 px-4 py-2.5 text-sm
@@ -238,8 +254,24 @@ export default function Navbar() {
                                             </Link>
                                         ))}
                                     </div>
+
+                                    {/* Seller section */}
                                     <div className="border-t border-gray-100 pt-1.5 pb-1">
-                                        {/* ── Real sign-out button ── */}
+                                        <p className="text-[9px] font-bold text-gray-300 uppercase
+                                            tracking-widest px-4 py-1.5">Selling</p>
+                                        {SELLER_MENU.map(({ icon: Icon, label, href }) => (
+                                            <Link key={label} href={href}
+                                                onClick={() => setUserMenuOpen(false)}
+                                                className="flex items-center gap-3 px-4 py-2.5 text-sm
+                                                    text-gray-600 hover:text-teal-700 hover:bg-teal-50
+                                                    transition-colors">
+                                                <Icon className="w-4 h-4 shrink-0" />{label}
+                                            </Link>
+                                        ))}
+                                    </div>
+
+                                    {/* Sign out */}
+                                    <div className="border-t border-gray-100 pt-1.5 pb-1">
                                         <button
                                             onClick={handleSignOut}
                                             disabled={signingOut}
@@ -327,6 +359,7 @@ export default function Navbar() {
                 transition-transform duration-300 ease-out
                 ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
 
+                {/* Drawer header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
                     <span className="font-bold text-gray-900">Menu</span>
                     <button onClick={closeMobileMenu}
@@ -337,6 +370,7 @@ export default function Navbar() {
                     </button>
                 </div>
 
+                {/* User info */}
                 <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-600 to-emerald-500
                         flex items-center justify-center text-white text-sm font-bold shrink-0">AJ</div>
@@ -346,6 +380,7 @@ export default function Navbar() {
                     </div>
                 </div>
 
+                {/* Sell CTA */}
                 <div className="px-5 py-4 border-b border-gray-100">
                     <Link href="/sell" onClick={closeMobileMenu}
                         className="flex items-center justify-center gap-2 bg-teal-800 text-white
@@ -355,6 +390,7 @@ export default function Navbar() {
                     </Link>
                 </div>
 
+                {/* Browse categories */}
                 <div className="px-5 py-4 border-b border-gray-100">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Browse</p>
                     <div className="flex flex-col gap-0.5">
@@ -375,10 +411,30 @@ export default function Navbar() {
                     </div>
                 </div>
 
-                <div className="px-5 py-4 flex-1">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Account</p>
+                {/* Buying section */}
+                <div className="px-5 py-4 border-b border-gray-100">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+                        Buying
+                    </p>
                     <div className="flex flex-col gap-0.5">
-                        {USER_MENU.map(({ icon: Icon, label, href }) => (
+                        {BUYER_MENU.map(({ icon: Icon, label, href }) => (
+                            <Link key={label} href={href} onClick={closeMobileMenu}
+                                className="flex items-center gap-3 px-2 py-2.5 rounded-xl text-sm
+                                    text-gray-700 hover:bg-teal-50 hover:text-teal-800 transition-colors">
+                                <Icon className="w-4 h-4 shrink-0 text-gray-400" />
+                                {label}
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Selling section */}
+                <div className="px-5 py-4 flex-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+                        Selling
+                    </p>
+                    <div className="flex flex-col gap-0.5">
+                        {SELLER_MENU.map(({ icon: Icon, label, href }) => (
                             <Link key={label} href={href} onClick={closeMobileMenu}
                                 className="flex items-center gap-3 px-2 py-2.5 rounded-xl text-sm
                                     text-gray-700 hover:bg-teal-50 hover:text-teal-800 transition-colors">
@@ -387,7 +443,7 @@ export default function Navbar() {
                             </Link>
                         ))}
 
-                        {/* ── Real sign-out in mobile drawer ── */}
+                        {/* Sign out */}
                         <button
                             onClick={handleSignOut}
                             disabled={signingOut}
@@ -409,6 +465,7 @@ export default function Navbar() {
                     </div>
                 </div>
 
+                {/* Notifications footer */}
                 <div className="px-5 py-4 border-t border-gray-100 shrink-0">
                     <Link href="/notifications" onClick={closeMobileMenu}
                         className="flex items-center gap-3 px-2 py-2.5 rounded-xl text-sm
