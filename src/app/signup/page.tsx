@@ -2,17 +2,7 @@
 
 // src/app/signup/page.tsx
 // ─────────────────────────────────────────────────────────────────
-// Signup page
-//
-// Features:
-//   • Username + email + password + confirm password
-//   • Real-time validation on blur (username, email, password, confirm)
-//   • Password strength indicator (Weak / Fair / Good / Strong)
-//   • Show / hide password toggles
-//   • Terms of service checkbox
-//   • Google OAuth
-//   • "Check your email" screen after signup when confirmation required
-//   • Redirect to ?next= URL after success
+// Signup page — Google + Facebook OAuth + email/password
 // ─────────────────────────────────────────────────────────────────
 
 import { useState, useCallback, FormEvent, Suspense } from 'react'
@@ -31,14 +21,12 @@ function validateUsername(v: string): string {
     if (!v.trim()) return 'Username is required.'
     if (v.length < 3) return 'Must be at least 3 characters.'
     if (v.length > 20) return 'Must be 20 characters or fewer.'
-    if (!/^[a-zA-Z0-9_]+$/.test(v))
-        return 'Only letters, numbers, and underscores are allowed.'
+    if (!/^[a-zA-Z0-9_]+$/.test(v)) return 'Only letters, numbers, and underscores.'
     return ''
 }
 function validateEmail(v: string): string {
     if (!v.trim()) return 'Email is required.'
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))
-        return 'Please enter a valid email address.'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return 'Please enter a valid email address.'
     return ''
 }
 function validatePassword(v: string): string {
@@ -52,25 +40,21 @@ function validateConfirm(pw: string, confirm: string): string {
     return ''
 }
 
-// ── Password strength calculator ──────────────────────────────────
 type StrengthLevel = { score: number; label: string; color: string; barColor: string }
-
 function getStrength(pw: string): StrengthLevel {
     if (!pw) return { score: 0, label: '', color: '', barColor: '' }
     let score = 0
-    if (pw.length >= 8)  score++
-    if (pw.length >= 12) score++
-    if (/[A-Z]/.test(pw)) score++
-    if (/[0-9]/.test(pw)) score++
-    if (/[^A-Za-z0-9]/.test(pw)) score++
-
-    if (score <= 1) return { score: 1, label: 'Weak',   color: 'text-red-500',    barColor: 'bg-red-500'   }
-    if (score <= 2) return { score: 2, label: 'Fair',   color: 'text-orange-500', barColor: 'bg-orange-400'}
-    if (score <= 3) return { score: 3, label: 'Good',   color: 'text-yellow-600', barColor: 'bg-yellow-400'}
-    return              { score: 4, label: 'Strong', color: 'text-emerald-600', barColor: 'bg-emerald-500'}
+    if (pw.length >= 8)           score++
+    if (pw.length >= 12)          score++
+    if (/[A-Z]/.test(pw))         score++
+    if (/[0-9]/.test(pw))         score++
+    if (/[^A-Za-z0-9]/.test(pw))  score++
+    if (score <= 1) return { score: 1, label: 'Weak',   color: 'text-red-500',    barColor: 'bg-red-500'    }
+    if (score <= 2) return { score: 2, label: 'Fair',   color: 'text-orange-500', barColor: 'bg-orange-400' }
+    if (score <= 3) return { score: 3, label: 'Good',   color: 'text-yellow-600', barColor: 'bg-yellow-400' }
+    return              { score: 4, label: 'Strong', color: 'text-emerald-600', barColor: 'bg-emerald-500' }
 }
 
-// ── Inline field error component ─────────────────────────────────
 function FieldError({ msg }: { msg: string }) {
     if (!msg) return null
     return (
@@ -81,7 +65,6 @@ function FieldError({ msg }: { msg: string }) {
     )
 }
 
-// ── Common input class factory ───────────────────────────────────
 const inputCls = (hasError: boolean, extraRight = false) =>
     `w-full border rounded-xl px-4 py-3 ${extraRight ? 'pr-12' : ''} text-sm text-gray-800
     outline-none transition-all placeholder:text-gray-400 bg-white
@@ -90,9 +73,16 @@ const inputCls = (hasError: boolean, extraRight = false) =>
         : 'border-gray-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-100'
     }`
 
-// ─────────────────────────────────────────────────────────────────
-// Success screen — shown when email confirmation is required
-// ─────────────────────────────────────────────────────────────────
+// ── Facebook icon ─────────────────────────────────────────────────
+function FacebookIcon({ className = "w-5 h-5" }: { className?: string }) {
+    return (
+        <svg className={className} viewBox="0 0 24 24" fill="#1877F2">
+            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+        </svg>
+    )
+}
+
+// ── Check-email screen ────────────────────────────────────────────
 function CheckEmailScreen({ email }: { email: string }) {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
@@ -122,15 +112,12 @@ function CheckEmailScreen({ email }: { email: string }) {
     )
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Inner component — reads useSearchParams, wrapped in Suspense
-// ─────────────────────────────────────────────────────────────────
+// ── Main signup form ──────────────────────────────────────────────
 function SignupForm() {
-    const router = useRouter()
+    const router       = useRouter()
     const searchParams = useSearchParams()
-    const nextUrl = searchParams.get('next') ?? '/'
+    const nextUrl      = searchParams.get('next') ?? '/'
 
-    // ── Form state ────────────────────────────────────────────────
     const [username,    setUsername]    = useState('')
     const [email,       setEmail]       = useState('')
     const [password,    setPassword]    = useState('')
@@ -143,12 +130,12 @@ function SignupForm() {
     })
     const [submitting,    setSubmitting]    = useState(false)
     const [googleLoading, setGoogleLoading] = useState(false)
+    const [fbLoading,     setFbLoading]     = useState(false)
     const [serverError,   setServerError]   = useState('')
     const [emailSent,     setEmailSent]     = useState(false)
 
     const strength = getStrength(password)
 
-    // Derived errors (show only after touched)
     const usernameErr = touched.username ? validateUsername(username) : ''
     const emailErr    = touched.email    ? validateEmail(email)       : ''
     const pwErr       = touched.password ? validatePassword(password) : ''
@@ -156,7 +143,7 @@ function SignupForm() {
 
     const isValid =
         !validateUsername(username) &&
-        !validateEmail(email) &&
+        !validateEmail(email)       &&
         !validatePassword(password) &&
         !validateConfirm(password, confirm) &&
         agreed
@@ -164,41 +151,36 @@ function SignupForm() {
     const touch = (field: keyof typeof touched) =>
         setTouched(t => ({ ...t, [field]: true }))
 
-    // ── Submit ────────────────────────────────────────────────────
-    const handleSubmit = useCallback(
-        async (e: FormEvent) => {
-            e.preventDefault()
-            setTouched({ username: true, email: true, password: true, confirm: true })
-            if (!isValid) return
+    // ── Email/password submit ─────────────────────────────────────
+    const handleSubmit = useCallback(async (e: FormEvent) => {
+        e.preventDefault()
+        setTouched({ username: true, email: true, password: true, confirm: true })
+        if (!isValid) return
 
-            setSubmitting(true)
-            setServerError('')
+        setSubmitting(true)
+        setServerError('')
 
-            const fd = new FormData()
-            fd.set('username', username.trim())
-            fd.set('email',    email.trim().toLowerCase())
-            fd.set('password', password)
+        const fd = new FormData()
+        fd.set('username', username.trim())
+        fd.set('email',    email.trim().toLowerCase())
+        fd.set('password', password)
 
-            const result = await actionSignUp(fd)
+        const result = await actionSignUp(fd)
 
-            if (!result.success && result.error !== 'CHECK_EMAIL') {
-                setServerError(result.error ?? 'Something went wrong.')
-                setSubmitting(false)
-                return
-            }
+        if (!result.success && result.error !== 'CHECK_EMAIL') {
+            setServerError(result.error ?? 'Something went wrong.')
+            setSubmitting(false)
+            return
+        }
 
-            if (result.error === 'CHECK_EMAIL') {
-                // Supabase requires email confirmation
-                setEmailSent(true)
-                return
-            }
+        if (result.error === 'CHECK_EMAIL') {
+            setEmailSent(true)
+            return
+        }
 
-            // Signed in immediately (email confirmation disabled)
-            router.push(nextUrl)
-            router.refresh()
-        },
-        [username, email, password, isValid, nextUrl, router]
-    )
+        router.push(nextUrl)
+        router.refresh()
+    }, [username, email, password, isValid, nextUrl, router])
 
     // ── Google OAuth ──────────────────────────────────────────────
     const handleGoogle = useCallback(async () => {
@@ -208,6 +190,7 @@ function SignupForm() {
             provider: 'google',
             options: {
                 redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextUrl)}`,
+                queryParams: { access_type: 'offline', prompt: 'select_account' },
             },
         })
         if (error) {
@@ -216,7 +199,27 @@ function SignupForm() {
         }
     }, [nextUrl])
 
-    // ── Show check-email screen ───────────────────────────────────
+    // ── Facebook OAuth ────────────────────────────────────────────
+    const handleFacebook = useCallback(async () => {
+        setFbLoading(true)
+        setServerError('')
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'facebook',
+            options: {
+                redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextUrl)}`,
+                scopes: 'email,public_profile',
+            },
+        })
+        if (error) {
+            setServerError(
+                error.message.includes('provider is not enabled')
+                    ? 'Facebook login is not enabled yet. Please use Google or email.'
+                    : error.message
+            )
+            setFbLoading(false)
+        }
+    }, [nextUrl])
+
     if (emailSent) return <CheckEmailScreen email={email} />
 
     return (
@@ -224,8 +227,7 @@ function SignupForm() {
 
             {/* ===== LEFT: Brand panel ===== */}
             <div className="hidden lg:flex flex-col justify-between w-[440px] shrink-0
-                bg-gradient-to-br from-teal-900 via-teal-800 to-teal-700
-                px-12 py-14">
+                bg-gradient-to-br from-teal-900 via-teal-800 to-teal-700 px-12 py-14">
 
                 <Link href="/" className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
@@ -248,8 +250,6 @@ function SignupForm() {
                             second-hand tech safely.
                         </p>
                     </div>
-
-                    {/* Benefits */}
                     {[
                         'Browse 1,200+ verified smartphone listings',
                         'Sell your device in minutes with auto-pricing',
@@ -263,10 +263,7 @@ function SignupForm() {
                         </div>
                     ))}
                 </div>
-
-                <p className="text-teal-500 text-xs">
-                    © 2025 Go2Hand · All rights reserved
-                </p>
+                <p className="text-teal-500 text-xs">© 2025 Go2Hand · All rights reserved</p>
             </div>
 
             {/* ===== RIGHT: Form ===== */}
@@ -286,37 +283,56 @@ function SignupForm() {
                 </Link>
 
                 <div className="w-full max-w-[440px]">
-
-                    {/* Heading */}
                     <div className="mb-7">
                         <h1 className="text-2xl font-black text-gray-900 mb-1">Create your account</h1>
                         <p className="text-sm text-gray-500">Free forever — no credit card required</p>
                     </div>
 
-                    {/* ── Google ── */}
-                    <button
-                        onClick={handleGoogle}
-                        disabled={googleLoading || submitting}
-                        className="w-full flex items-center justify-center gap-3 bg-white border-2
-                            border-gray-200 hover:border-gray-300 text-gray-700 font-semibold
-                            py-3 rounded-xl transition-all duration-150 hover:shadow-sm
-                            disabled:opacity-60 disabled:cursor-wait mb-5"
-                    >
-                        {googleLoading ? (
-                            <svg className="w-4 h-4 animate-spin text-gray-400" viewBox="0 0 24 24" fill="none">
-                                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity=".3"/>
-                                <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
-                            </svg>
-                        ) : (
-                            <svg className="w-5 h-5" viewBox="0 0 24 24">
-                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                            </svg>
-                        )}
-                        {googleLoading ? 'Redirecting…' : 'Sign up with Google'}
-                    </button>
+                    {/* ── OAuth buttons ── */}
+                    <div className="flex flex-col gap-3 mb-5">
+                        {/* Google */}
+                        <button
+                            onClick={handleGoogle}
+                            disabled={googleLoading || fbLoading || submitting}
+                            className="w-full flex items-center justify-center gap-3 bg-white border-2
+                                border-gray-200 hover:border-gray-300 text-gray-700 font-semibold
+                                py-3 rounded-xl transition-all duration-150 hover:shadow-sm
+                                disabled:opacity-60 disabled:cursor-wait"
+                        >
+                            {googleLoading ? (
+                                <svg className="w-4 h-4 animate-spin text-gray-400" viewBox="0 0 24 24" fill="none">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity=".3"/>
+                                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                                </svg>
+                            ) : (
+                                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                                </svg>
+                            )}
+                            {googleLoading ? 'Redirecting…' : 'Sign up with Google'}
+                        </button>
+
+                        {/* Facebook */}
+                        <button
+                            onClick={handleFacebook}
+                            disabled={fbLoading || googleLoading || submitting}
+                            className="w-full flex items-center justify-center gap-3 bg-white border-2
+                                border-gray-200 hover:border-[#1877F2]/40 text-gray-700 font-semibold
+                                py-3 rounded-xl transition-all duration-150 hover:shadow-sm
+                                disabled:opacity-60 disabled:cursor-wait"
+                        >
+                            {fbLoading ? (
+                                <svg className="w-4 h-4 animate-spin text-gray-400" viewBox="0 0 24 24" fill="none">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity=".3"/>
+                                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                                </svg>
+                            ) : <FacebookIcon />}
+                            {fbLoading ? 'Redirecting…' : 'Sign up with Facebook'}
+                        </button>
+                    </div>
 
                     {/* Divider */}
                     <div className="flex items-center gap-3 mb-5">
@@ -325,7 +341,7 @@ function SignupForm() {
                         <div className="flex-1 h-px bg-gray-200" />
                     </div>
 
-                    {/* ── Form ── */}
+                    {/* ── Email form ── */}
                     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
 
                         {/* Username */}
@@ -335,8 +351,7 @@ function SignupForm() {
                                 Username <span className="text-red-400">*</span>
                             </label>
                             <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2
-                                    text-gray-400 text-sm select-none">@</span>
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">@</span>
                                 <input
                                     type="text"
                                     value={username}
@@ -352,8 +367,7 @@ function SignupForm() {
                                 <FieldError msg={usernameErr} />
                             ) : username.length >= 3 ? (
                                 <p className="flex items-center gap-1 mt-1.5 text-xs text-emerald-600">
-                                    <CheckCircleIcon className="w-3.5 h-3.5" />
-                                    Looks good!
+                                    <CheckCircleIcon className="w-3.5 h-3.5" /> Looks good!
                                 </p>
                             ) : (
                                 <p className="mt-1.5 text-xs text-gray-400">
@@ -380,7 +394,7 @@ function SignupForm() {
                             <FieldError msg={emailErr} />
                         </div>
 
-                        {/* Password + strength indicator */}
+                        {/* Password */}
                         <div>
                             <label className="block text-[11px] font-bold text-gray-500
                                 uppercase tracking-wider mb-1.5">
@@ -396,24 +410,14 @@ function SignupForm() {
                                     autoComplete="new-password"
                                     className={inputCls(!!pwErr, true)}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPw(v => !v)}
+                                <button type="button" onClick={() => setShowPw(v => !v)}
                                     className="absolute right-3.5 top-1/2 -translate-y-1/2
-                                        text-gray-400 hover:text-gray-600 transition-colors"
-                                    aria-label={showPw ? 'Hide password' : 'Show password'}
-                                >
-                                    {showPw
-                                        ? <EyeSlashIcon className="w-5 h-5" />
-                                        : <EyeIcon className="w-5 h-5" />
-                                    }
+                                        text-gray-400 hover:text-gray-600 transition-colors">
+                                    {showPw ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                                 </button>
                             </div>
-
-                            {/* Strength bar — only shown when password has content */}
                             {password.length > 0 && (
-                                <div className="mt-2 animate-[fadeDown_.15s_ease_both]">
-                                    {/* 4-segment bar */}
+                                <div className="mt-2">
                                     <div className="flex gap-1 mb-1">
                                         {[1, 2, 3, 4].map(i => (
                                             <div key={i}
@@ -424,16 +428,9 @@ function SignupForm() {
                                     </div>
                                     <p className={`text-xs font-semibold ${strength.color}`}>
                                         {strength.label}
-                                        {strength.score < 4 && (
-                                            <span className="font-normal text-gray-400">
-                                                {' '}— add {strength.score < 2 ? 'uppercase + numbers' :
-                                                        strength.score < 3 ? 'a symbol' : 'more length'}
-                                            </span>
-                                        )}
                                     </p>
                                 </div>
                             )}
-
                             <FieldError msg={pwErr} />
                         </div>
 
@@ -453,23 +450,15 @@ function SignupForm() {
                                     autoComplete="new-password"
                                     className={inputCls(!!confirmErr, true)}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowConfirm(v => !v)}
+                                <button type="button" onClick={() => setShowConfirm(v => !v)}
                                     className="absolute right-3.5 top-1/2 -translate-y-1/2
-                                        text-gray-400 hover:text-gray-600 transition-colors"
-                                    aria-label={showConfirm ? 'Hide' : 'Show'}
-                                >
-                                    {showConfirm
-                                        ? <EyeSlashIcon className="w-5 h-5" />
-                                        : <EyeIcon className="w-5 h-5" />
-                                    }
+                                        text-gray-400 hover:text-gray-600 transition-colors">
+                                    {showConfirm ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                                 </button>
                             </div>
                             {!confirmErr && confirm && confirm === password ? (
                                 <p className="flex items-center gap-1 mt-1.5 text-xs text-emerald-600">
-                                    <CheckCircleIcon className="w-3.5 h-3.5" />
-                                    Passwords match!
+                                    <CheckCircleIcon className="w-3.5 h-3.5" /> Passwords match!
                                 </p>
                             ) : (
                                 <FieldError msg={confirmErr} />
@@ -479,18 +468,11 @@ function SignupForm() {
                         {/* Terms checkbox */}
                         <label className="flex items-start gap-3 cursor-pointer group">
                             <div className="relative mt-0.5 shrink-0">
-                                <input
-                                    type="checkbox"
-                                    checked={agreed}
-                                    onChange={e => setAgreed(e.target.checked)}
-                                    className="sr-only"
-                                />
+                                <input type="checkbox" checked={agreed}
+                                    onChange={e => setAgreed(e.target.checked)} className="sr-only" />
                                 <div className={`w-5 h-5 rounded border-2 flex items-center justify-center
                                     transition-all duration-150
-                                    ${agreed
-                                        ? 'bg-teal-700 border-teal-700'
-                                        : 'border-gray-300 group-hover:border-teal-400'
-                                    }`}>
+                                    ${agreed ? 'bg-teal-700 border-teal-700' : 'border-gray-300 group-hover:border-teal-400'}`}>
                                     {agreed && (
                                         <svg className="w-3 h-3 text-white" viewBox="0 0 12 10" fill="none">
                                             <path d="M1 5l3.5 3.5 6.5-8" stroke="currentColor"
@@ -510,7 +492,7 @@ function SignupForm() {
                         {/* Server error */}
                         {serverError && (
                             <div className="flex items-start gap-2.5 bg-red-50 border border-red-200
-                                rounded-xl px-4 py-3 animate-[fadeDown_.2s_ease_both]">
+                                rounded-xl px-4 py-3">
                                 <ExclamationCircleIcon className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                                 <p className="text-sm text-red-700">{serverError}</p>
                             </div>
@@ -519,7 +501,7 @@ function SignupForm() {
                         {/* Submit */}
                         <button
                             type="submit"
-                            disabled={submitting || googleLoading || !agreed}
+                            disabled={submitting || googleLoading || fbLoading || !agreed}
                             className="w-full h-12 bg-teal-800 hover:bg-teal-700 text-white font-bold
                                 rounded-xl text-[15px] flex items-center justify-center gap-2
                                 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg
@@ -552,9 +534,6 @@ function SignupForm() {
     )
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Default export — wraps in Suspense for useSearchParams
-// ─────────────────────────────────────────────────────────────────
 export default function SignupPage() {
     return (
         <Suspense fallback={
