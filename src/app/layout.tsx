@@ -2,15 +2,18 @@
 // ============================================
 // ROOT LAYOUT
 //
-// Week 6 update: CartProvider added so the
-// cart badge in Navbar reflects live state.
-// CartProvider must wrap the entire tree
-// because Navbar (client) reads from it.
+// Providers (outer → inner):
+//   AuthProvider  → real Supabase session state
+//   CartProvider  → cart badge in Navbar
+//
+// AuthProvider must be outermost so CartProvider
+// and all other components can call useAuth().
 // ============================================
 
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 
 const geistSans = Geist({
@@ -37,14 +40,11 @@ export default function RootLayout({
     return (
         <html lang="en">
             <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-                {/*
-                    CartProvider wraps the entire app so any component —
-                    Navbar, DeviceDetailClient, future CartPage, etc. —
-                    can read and mutate cart state via useCart().
-                */}
-                <CartProvider>
-                    {children}
-                </CartProvider>
+                <AuthProvider>
+                    <CartProvider>
+                        {children}
+                    </CartProvider>
+                </AuthProvider>
             </body>
         </html>
     );

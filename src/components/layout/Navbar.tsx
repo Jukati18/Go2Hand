@@ -1,6 +1,16 @@
 "use client";
 
 // src/components/layout/Navbar.tsx
+// ============================================
+// NAVBAR — Real auth state via AuthContext
+//
+// Changes from previous version:
+//  • Reads from useAuth() instead of hardcoded "AJ"
+//  • Shows "Sign In" + "Sign Up" buttons when logged out
+//  • Shows real user avatar/initials + dropdown when logged in
+//  • Handles loading state (skeleton avatar)
+//  • Session persists 14 days via Supabase localStorage tokens
+// ============================================
 
 import Link from "next/link";
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -9,10 +19,11 @@ import {
     HeartIcon, BellIcon, ChevronDownIcon, UserCircleIcon,
     ClipboardDocumentListIcon, ShoppingBagIcon, Cog6ToothIcon,
     ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon, MagnifyingGlassIcon,
-    ShoppingCartIcon, ChatBubbleLeftEllipsisIcon,
+    ShoppingCartIcon, ChatBubbleLeftEllipsisIcon, ArrowLeftOnRectangleIcon,
 } from '@heroicons/react/24/outline';
 import SearchBar from "@/components/layout/SearchBar";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 import { actionSignOut } from "@/actions/auth";
 
 const CATEGORIES = [
@@ -24,7 +35,6 @@ const CATEGORIES = [
     { icon: '🖥️', label: 'Desktops',   href: '/categories/desktops',    desc: '60+ listings'   },
 ];
 
-// ── Dropdown menu — split into Buyer and Seller sections ──────────
 const BUYER_MENU = [
     { icon: UserCircleIcon,            label: 'My Profile',      href: '/profile'           },
     { icon: ShoppingBagIcon,           label: 'My Purchases',    href: '/dashboard/buyer'   },
@@ -38,15 +48,46 @@ const SELLER_MENU = [
     { icon: Cog6ToothIcon,             label: 'Settings',        href: '/settings'          },
 ];
 
+// ── Generate initials from a name or username ─────────────────────
+function getInitials(name: string): string {
+    return name
+        .split(' ')
+        .map(w => w[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+}
+
+// ── Pick an avatar gradient from a seed string ────────────────────
+const GRADIENTS = [
+    'from-teal-500 to-emerald-500',
+    'from-violet-500 to-purple-500',
+    'from-orange-500 to-red-500',
+    'from-blue-500 to-cyan-500',
+    'from-pink-500 to-rose-500',
+    'from-amber-500 to-orange-500',
+]
+function pickGradient(seed: string): string {
+    return GRADIENTS[seed.charCodeAt(0) % GRADIENTS.length]
+}
+
 export default function Navbar() {
     const router = useRouter();
+    const { user, profile, loading, isAuthenticated } = useAuth();
+    const { count: cartCount } = useCart();
+
     const [userMenuOpen,     setUserMenuOpen]     = useState(false);
     const [mobileMenuOpen,   setMobileMenuOpen]   = useState(false);
     const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
     const [signingOut,       setSigningOut]        = useState(false);
     const userMenuRef = useRef<HTMLDivElement>(null);
 
-    const { count: cartCount } = useCart();
+    // ── Derived display values from real auth ─────────────────────
+    const displayName = profile?.fullName ?? profile?.username ?? user?.email?.split('@')[0] ?? ''
+    const initials    = displayName ? getInitials(displayName) : '?'
+    const gradient    = user ? pickGradient(user.id) : 'from-gray-400 to-gray-500'
+    const avatarUrl   = profile?.avatarUrl ?? null
+    const email       = profile?.email ?? user?.email ?? ''
 
     // ── Close user dropdown on outside click ──────────────────────
     useEffect(() => {
@@ -83,6 +124,36 @@ export default function Navbar() {
         }
         setSigningOut(false);
     }, [router]);
+
+    // ── Avatar component — real image or gradient initials ────────
+    const AvatarCircle = ({ size = 'sm' }: { size?: 'sm' | 'md' }) => {
+        const cls = size === 'sm'
+            ? 'w-8 h-8 text-xs'
+            : 'w-10 h-10 text-sm'
+
+        if (loading) {
+            // Skeleton pulse while auth resolves
+            return <div className={`${cls} rounded-full bg-gray-200 animate-pulse`} />
+        }
+
+        if (avatarUrl) {
+            return (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                    src={avatarUrl}
+                    alt={displayName}
+                    className={`${cls} rounded-full object-cover border-2 border-white/20`}
+                />
+            )
+        }
+
+        return (
+            <div className={`${cls} rounded-full bg-gradient-to-br ${gradient}
+                flex items-center justify-center text-white font-bold shrink-0`}>
+                {initials}
+            </div>
+        )
+    }
 
     return (
         <>
@@ -161,140 +232,174 @@ export default function Navbar() {
                             Sell Device
                         </Link>
 
-                        {/* Notification bell */}
-                        <button className="relative w-9 h-9 flex items-center justify-center rounded-full
-                            border border-gray-200 hover:border-teal-400 hover:bg-teal-50
-                            transition-colors ml-1" aria-label="Notifications">
-                            <BellIcon className="w-[18px] h-[18px] text-gray-500" />
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500
-                                rounded-full border-2 border-white" />
-                        </button>
+                        {/* ── LOGGED IN: notification + messages + cart + watchlist + avatar ── */}
+                        {isAuthenticated && (
+                            <>
+                                {/* Notification bell */}
+                                <button className="relative w-9 h-9 flex items-center justify-center rounded-full
+                                    border border-gray-200 hover:border-teal-400 hover:bg-teal-50
+                                    transition-colors ml-1" aria-label="Notifications">
+                                    <BellIcon className="w-[18px] h-[18px] text-gray-500" />
+                                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500
+                                        rounded-full border-2 border-white" />
+                                </button>
 
-                        {/* Messages icon — quick link */}
-                        <Link href="/dashboard/messages"
-                            aria-label="Messages"
-                            className="relative w-9 h-9 flex items-center justify-center rounded-full
-                                border border-gray-200 hover:border-teal-400 hover:bg-teal-50
-                                transition-all duration-150 group">
-                            <ChatBubbleLeftEllipsisIcon className="w-[18px] h-[18px] text-gray-500
-                                group-hover:text-teal-600 transition-colors" />
-                        </Link>
+                                {/* Messages icon */}
+                                <Link href="/dashboard/messages"
+                                    aria-label="Messages"
+                                    className="relative w-9 h-9 flex items-center justify-center rounded-full
+                                        border border-gray-200 hover:border-teal-400 hover:bg-teal-50
+                                        transition-all duration-150 group">
+                                    <ChatBubbleLeftEllipsisIcon className="w-[18px] h-[18px] text-gray-500
+                                        group-hover:text-teal-600 transition-colors" />
+                                </Link>
 
-                        {/* Cart icon */}
-                        <Link href="/cart"
-                            aria-label={`Cart — ${cartCount} item${cartCount !== 1 ? 's' : ''}`}
-                            className="relative w-9 h-9 flex items-center justify-center rounded-full
-                                border border-gray-200 hover:border-teal-400 hover:bg-teal-50
-                                transition-all duration-150 group">
-                            <ShoppingCartIcon className="w-[18px] h-[18px] text-gray-500
-                                group-hover:text-teal-600 transition-colors" />
-                            <span className={`absolute -top-1 -right-1 min-w-[16px] h-4 px-1
-                                bg-teal-700 text-white text-[9px] font-bold rounded-full
-                                flex items-center justify-center border-2 border-white
-                                transition-all duration-200 ease-out
-                                ${cartCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'}`}
-                                aria-hidden="true">
-                                {cartCount > 99 ? '99+' : cartCount}
-                            </span>
-                        </Link>
+                                {/* Cart icon */}
+                                <Link href="/cart"
+                                    aria-label={`Cart — ${cartCount} item${cartCount !== 1 ? 's' : ''}`}
+                                    className="relative w-9 h-9 flex items-center justify-center rounded-full
+                                        border border-gray-200 hover:border-teal-400 hover:bg-teal-50
+                                        transition-all duration-150 group">
+                                    <ShoppingCartIcon className="w-[18px] h-[18px] text-gray-500
+                                        group-hover:text-teal-600 transition-colors" />
+                                    <span className={`absolute -top-1 -right-1 min-w-[16px] h-4 px-1
+                                        bg-teal-700 text-white text-[9px] font-bold rounded-full
+                                        flex items-center justify-center border-2 border-white
+                                        transition-all duration-200 ease-out
+                                        ${cartCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'}`}
+                                        aria-hidden="true">
+                                        {cartCount > 99 ? '99+' : cartCount}
+                                    </span>
+                                </Link>
 
-                        {/* Watchlist heart */}
-                        <Link href="/watchlist"
-                            className="relative w-9 h-9 flex items-center justify-center rounded-full
-                                border border-gray-200 hover:border-teal-400 hover:bg-teal-50
-                                transition-colors" aria-label="Watchlist">
-                            <HeartIcon className="w-[18px] h-[18px] text-gray-500" />
-                        </Link>
+                                {/* Watchlist heart */}
+                                <Link href="/watchlist"
+                                    className="relative w-9 h-9 flex items-center justify-center rounded-full
+                                        border border-gray-200 hover:border-teal-400 hover:bg-teal-50
+                                        transition-colors" aria-label="Watchlist">
+                                    <HeartIcon className="w-[18px] h-[18px] text-gray-500" />
+                                </Link>
 
-                        {/* Avatar + user dropdown */}
-                        <div ref={userMenuRef} className="relative ml-1">
-                            <button
-                                onClick={() => setUserMenuOpen(o => !o)}
-                                aria-expanded={userMenuOpen}
-                                aria-label="User menu"
-                                className={`flex items-center gap-1.5 rounded-full pl-0.5 pr-2.5 py-0.5
-                                    border transition-all duration-150
-                                    ${userMenuOpen
-                                        ? 'border-teal-400 bg-teal-50'
-                                        : 'border-gray-200 hover:border-teal-300 hover:bg-gray-50'}`}>
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br
-                                    from-teal-600 to-emerald-500 flex items-center justify-center
-                                    text-white text-xs font-bold">AJ</div>
-                                <ChevronDownIcon className={`w-3 h-3 text-gray-400 transition-transform
-                                    duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
-                            </button>
+                                {/* Avatar + user dropdown */}
+                                <div ref={userMenuRef} className="relative ml-1">
+                                    <button
+                                        onClick={() => setUserMenuOpen(o => !o)}
+                                        aria-expanded={userMenuOpen}
+                                        aria-label="User menu"
+                                        className={`flex items-center gap-1.5 rounded-full pl-0.5 pr-2.5 py-0.5
+                                            border transition-all duration-150
+                                            ${userMenuOpen
+                                                ? 'border-teal-400 bg-teal-50'
+                                                : 'border-gray-200 hover:border-teal-300 hover:bg-gray-50'}`}>
+                                        <AvatarCircle size="sm" />
+                                        <ChevronDownIcon className={`w-3 h-3 text-gray-400 transition-transform
+                                            duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
+                                    </button>
 
-                            {userMenuOpen && (
-                                <div className="absolute top-[calc(100%+8px)] right-0 w-56
-                                    bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50
-                                    animate-[fadeDown_.15s_ease_both]">
+                                    {userMenuOpen && (
+                                        <div className="absolute top-[calc(100%+8px)] right-0 w-56
+                                            bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50
+                                            animate-[fadeDown_.15s_ease_both]">
 
-                                    {/* User info */}
-                                    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-                                        <div className="w-9 h-9 rounded-full bg-gradient-to-br
-                                            from-teal-600 to-emerald-500 flex items-center justify-center
-                                            text-white text-sm font-bold shrink-0">AJ</div>
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-bold text-gray-900 truncate">Alex Johnson</p>
-                                            <p className="text-xs text-gray-400 truncate">alex@email.com</p>
+                                            {/* User info */}
+                                            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+                                                <AvatarCircle size="md" />
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-bold text-gray-900 truncate">
+                                                        {displayName}
+                                                    </p>
+                                                    <p className="text-xs text-gray-400 truncate">{email}</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Buyer section */}
+                                            <div className="pt-1.5 pb-1">
+                                                <p className="text-[9px] font-bold text-gray-300 uppercase
+                                                    tracking-widest px-4 py-1.5">Buying</p>
+                                                {BUYER_MENU.map(({ icon: Icon, label, href }) => (
+                                                    <Link key={label} href={href}
+                                                        onClick={() => setUserMenuOpen(false)}
+                                                        className="flex items-center gap-3 px-4 py-2.5 text-sm
+                                                            text-gray-600 hover:text-teal-700 hover:bg-teal-50
+                                                            transition-colors">
+                                                        <Icon className="w-4 h-4 shrink-0" />{label}
+                                                    </Link>
+                                                ))}
+                                            </div>
+
+                                            {/* Seller section */}
+                                            <div className="border-t border-gray-100 pt-1.5 pb-1">
+                                                <p className="text-[9px] font-bold text-gray-300 uppercase
+                                                    tracking-widest px-4 py-1.5">Selling</p>
+                                                {SELLER_MENU.map(({ icon: Icon, label, href }) => (
+                                                    <Link key={label} href={href}
+                                                        onClick={() => setUserMenuOpen(false)}
+                                                        className="flex items-center gap-3 px-4 py-2.5 text-sm
+                                                            text-gray-600 hover:text-teal-700 hover:bg-teal-50
+                                                            transition-colors">
+                                                        <Icon className="w-4 h-4 shrink-0" />{label}
+                                                    </Link>
+                                                ))}
+                                            </div>
+
+                                            {/* Sign out */}
+                                            <div className="border-t border-gray-100 pt-1.5 pb-1">
+                                                <button
+                                                    onClick={handleSignOut}
+                                                    disabled={signingOut}
+                                                    className="flex items-center gap-3 w-full px-4 py-2.5
+                                                        text-sm text-red-500 hover:bg-red-50 transition-colors
+                                                        disabled:opacity-60 disabled:cursor-wait">
+                                                    {signingOut ? (
+                                                        <svg className="w-4 h-4 animate-spin shrink-0"
+                                                            viewBox="0 0 24 24" fill="none">
+                                                            <circle cx="12" cy="12" r="10" stroke="currentColor"
+                                                                strokeWidth="3" strokeOpacity=".3"/>
+                                                            <path d="M12 2a10 10 0 0 1 10 10"
+                                                                stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                                                        </svg>
+                                                    ) : (
+                                                        <ArrowRightOnRectangleIcon className="w-4 h-4 shrink-0" />
+                                                    )}
+                                                    {signingOut ? 'Signing out…' : 'Sign Out'}
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-
-                                    {/* Buyer section */}
-                                    <div className="pt-1.5 pb-1">
-                                        <p className="text-[9px] font-bold text-gray-300 uppercase
-                                            tracking-widest px-4 py-1.5">Buying</p>
-                                        {BUYER_MENU.map(({ icon: Icon, label, href }) => (
-                                            <Link key={label} href={href}
-                                                onClick={() => setUserMenuOpen(false)}
-                                                className="flex items-center gap-3 px-4 py-2.5 text-sm
-                                                    text-gray-600 hover:text-teal-700 hover:bg-teal-50
-                                                    transition-colors">
-                                                <Icon className="w-4 h-4 shrink-0" />{label}
-                                            </Link>
-                                        ))}
-                                    </div>
-
-                                    {/* Seller section */}
-                                    <div className="border-t border-gray-100 pt-1.5 pb-1">
-                                        <p className="text-[9px] font-bold text-gray-300 uppercase
-                                            tracking-widest px-4 py-1.5">Selling</p>
-                                        {SELLER_MENU.map(({ icon: Icon, label, href }) => (
-                                            <Link key={label} href={href}
-                                                onClick={() => setUserMenuOpen(false)}
-                                                className="flex items-center gap-3 px-4 py-2.5 text-sm
-                                                    text-gray-600 hover:text-teal-700 hover:bg-teal-50
-                                                    transition-colors">
-                                                <Icon className="w-4 h-4 shrink-0" />{label}
-                                            </Link>
-                                        ))}
-                                    </div>
-
-                                    {/* Sign out */}
-                                    <div className="border-t border-gray-100 pt-1.5 pb-1">
-                                        <button
-                                            onClick={handleSignOut}
-                                            disabled={signingOut}
-                                            className="flex items-center gap-3 w-full px-4 py-2.5
-                                                text-sm text-red-500 hover:bg-red-50 transition-colors
-                                                disabled:opacity-60 disabled:cursor-wait">
-                                            {signingOut ? (
-                                                <svg className="w-4 h-4 animate-spin shrink-0"
-                                                    viewBox="0 0 24 24" fill="none">
-                                                    <circle cx="12" cy="12" r="10" stroke="currentColor"
-                                                        strokeWidth="3" strokeOpacity=".3"/>
-                                                    <path d="M12 2a10 10 0 0 1 10 10"
-                                                        stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
-                                                </svg>
-                                            ) : (
-                                                <ArrowRightOnRectangleIcon className="w-4 h-4 shrink-0" />
-                                            )}
-                                            {signingOut ? 'Signing out…' : 'Sign Out'}
-                                        </button>
-                                    </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
+                            </>
+                        )}
+
+                        {/* ── LOGGED OUT: Sign In + Sign Up buttons ── */}
+                        {!isAuthenticated && !loading && (
+                            <div className="flex items-center gap-2 ml-2">
+                                <Link
+                                    href="/login"
+                                    className="flex items-center gap-1.5 text-sm font-semibold text-gray-600
+                                        hover:text-teal-700 px-4 py-2 rounded-full border border-gray-200
+                                        hover:border-teal-400 hover:bg-teal-50 transition-all duration-150"
+                                >
+                                    <ArrowLeftOnRectangleIcon className="w-4 h-4" />
+                                    Sign In
+                                </Link>
+                                <Link
+                                    href="/signup"
+                                    className="flex items-center gap-1.5 text-sm font-semibold text-white
+                                        bg-teal-800 hover:bg-teal-700 px-4 py-2 rounded-full
+                                        transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
+                                >
+                                    Sign Up
+                                </Link>
+                            </div>
+                        )}
+
+                        {/* Loading skeleton for auth area */}
+                        {loading && (
+                            <div className="flex items-center gap-2 ml-2">
+                                <div className="w-20 h-8 bg-gray-100 rounded-full animate-pulse" />
+                                <div className="w-20 h-8 bg-gray-100 rounded-full animate-pulse" />
+                            </div>
+                        )}
                     </div>
 
                     {/* ── Mobile right actions ── */}
@@ -307,27 +412,31 @@ export default function Navbar() {
                             <MagnifyingGlassIcon className="w-[18px] h-[18px] text-gray-500" />
                         </button>
 
-                        <Link href="/cart"
-                            aria-label={`Cart — ${cartCount} items`}
-                            className="relative w-9 h-9 flex items-center justify-center rounded-full
-                                border border-gray-200 hover:border-teal-400 transition-colors">
-                            <ShoppingCartIcon className="w-[18px] h-[18px] text-gray-500" />
-                            <span className={`absolute -top-1 -right-1 min-w-[16px] h-4 px-1
-                                bg-teal-700 text-white text-[9px] font-bold rounded-full
-                                flex items-center justify-center border-2 border-white
-                                transition-all duration-200 ease-out
-                                ${cartCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'}`}
-                                aria-hidden="true">
-                                {cartCount > 99 ? '99+' : cartCount}
-                            </span>
-                        </Link>
+                        {isAuthenticated && (
+                            <>
+                                <Link href="/cart"
+                                    aria-label={`Cart — ${cartCount} items`}
+                                    className="relative w-9 h-9 flex items-center justify-center rounded-full
+                                        border border-gray-200 hover:border-teal-400 transition-colors">
+                                    <ShoppingCartIcon className="w-[18px] h-[18px] text-gray-500" />
+                                    <span className={`absolute -top-1 -right-1 min-w-[16px] h-4 px-1
+                                        bg-teal-700 text-white text-[9px] font-bold rounded-full
+                                        flex items-center justify-center border-2 border-white
+                                        transition-all duration-200 ease-out
+                                        ${cartCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'}`}
+                                        aria-hidden="true">
+                                        {cartCount > 99 ? '99+' : cartCount}
+                                    </span>
+                                </Link>
 
-                        <Link href="/watchlist"
-                            className="relative w-9 h-9 flex items-center justify-center rounded-full
-                                border border-gray-200 hover:border-teal-400 transition-colors"
-                            aria-label="Watchlist">
-                            <HeartIcon className="w-[18px] h-[18px] text-gray-500" />
-                        </Link>
+                                <Link href="/watchlist"
+                                    className="relative w-9 h-9 flex items-center justify-center rounded-full
+                                        border border-gray-200 hover:border-teal-400 transition-colors"
+                                    aria-label="Watchlist">
+                                    <HeartIcon className="w-[18px] h-[18px] text-gray-500" />
+                                </Link>
+                            </>
+                        )}
 
                         <button
                             onClick={() => setMobileMenuOpen(true)}
@@ -370,15 +479,35 @@ export default function Navbar() {
                     </button>
                 </div>
 
-                {/* User info */}
-                <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-600 to-emerald-500
-                        flex items-center justify-center text-white text-sm font-bold shrink-0">AJ</div>
-                    <div className="min-w-0">
-                        <p className="text-sm font-bold text-gray-900 truncate">Alex Johnson</p>
-                        <p className="text-xs text-gray-400 truncate">alex@email.com</p>
+                {/* ── LOGGED IN: user info ── */}
+                {isAuthenticated && (
+                    <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
+                        <AvatarCircle size="md" />
+                        <div className="min-w-0">
+                            <p className="text-sm font-bold text-gray-900 truncate">{displayName}</p>
+                            <p className="text-xs text-gray-400 truncate">{email}</p>
+                        </div>
                     </div>
-                </div>
+                )}
+
+                {/* ── LOGGED OUT: sign in/up in drawer ── */}
+                {!isAuthenticated && !loading && (
+                    <div className="flex flex-col gap-2 px-5 py-4 border-b border-gray-100">
+                        <Link href="/login" onClick={closeMobileMenu}
+                            className="flex items-center justify-center gap-2 border-2 border-teal-800
+                                text-teal-800 font-semibold px-4 py-3 rounded-xl text-sm w-full
+                                hover:bg-teal-50 transition-colors">
+                            <ArrowLeftOnRectangleIcon className="w-4 h-4" />
+                            Sign In
+                        </Link>
+                        <Link href="/signup" onClick={closeMobileMenu}
+                            className="flex items-center justify-center gap-2 bg-teal-800
+                                text-white font-semibold px-4 py-3 rounded-xl text-sm w-full
+                                hover:bg-teal-700 transition-colors">
+                            Create Account
+                        </Link>
+                    </div>
+                )}
 
                 {/* Sell CTA */}
                 <div className="px-5 py-4 border-b border-gray-100">
@@ -411,72 +540,75 @@ export default function Navbar() {
                     </div>
                 </div>
 
-                {/* Buying section */}
-                <div className="px-5 py-4 border-b border-gray-100">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
-                        Buying
-                    </p>
-                    <div className="flex flex-col gap-0.5">
-                        {BUYER_MENU.map(({ icon: Icon, label, href }) => (
-                            <Link key={label} href={href} onClick={closeMobileMenu}
-                                className="flex items-center gap-3 px-2 py-2.5 rounded-xl text-sm
-                                    text-gray-700 hover:bg-teal-50 hover:text-teal-800 transition-colors">
-                                <Icon className="w-4 h-4 shrink-0 text-gray-400" />
-                                {label}
-                            </Link>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Selling section */}
-                <div className="px-5 py-4 flex-1">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
-                        Selling
-                    </p>
-                    <div className="flex flex-col gap-0.5">
-                        {SELLER_MENU.map(({ icon: Icon, label, href }) => (
-                            <Link key={label} href={href} onClick={closeMobileMenu}
-                                className="flex items-center gap-3 px-2 py-2.5 rounded-xl text-sm
-                                    text-gray-700 hover:bg-teal-50 hover:text-teal-800 transition-colors">
-                                <Icon className="w-4 h-4 shrink-0 text-gray-400" />
-                                {label}
-                            </Link>
-                        ))}
-
-                        {/* Sign out */}
-                        <button
-                            onClick={handleSignOut}
-                            disabled={signingOut}
-                            className="flex items-center gap-3 w-full px-2 py-2.5 rounded-xl text-sm
-                                text-red-500 hover:bg-red-50 transition-colors mt-2
-                                disabled:opacity-60 disabled:cursor-wait">
-                            {signingOut ? (
-                                <svg className="w-4 h-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
-                                    <circle cx="12" cy="12" r="10" stroke="currentColor"
-                                        strokeWidth="3" strokeOpacity=".3"/>
-                                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor"
-                                        strokeWidth="3" strokeLinecap="round"/>
-                                </svg>
-                            ) : (
-                                <ArrowRightOnRectangleIcon className="w-4 h-4 shrink-0" />
-                            )}
-                            {signingOut ? 'Signing out…' : 'Sign Out'}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Notifications footer */}
-                <div className="px-5 py-4 border-t border-gray-100 shrink-0">
-                    <Link href="/notifications" onClick={closeMobileMenu}
-                        className="flex items-center gap-3 px-2 py-2.5 rounded-xl text-sm
-                            text-gray-700 hover:bg-gray-50 transition-colors">
-                        <div className="relative">
-                            <BellIcon className="w-4 h-4 text-gray-400" />
-                            <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                {/* ── LOGGED IN: buyer + seller sections ── */}
+                {isAuthenticated && (
+                    <>
+                        <div className="px-5 py-4 border-b border-gray-100">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+                                Buying
+                            </p>
+                            <div className="flex flex-col gap-0.5">
+                                {BUYER_MENU.map(({ icon: Icon, label, href }) => (
+                                    <Link key={label} href={href} onClick={closeMobileMenu}
+                                        className="flex items-center gap-3 px-2 py-2.5 rounded-xl text-sm
+                                            text-gray-700 hover:bg-teal-50 hover:text-teal-800 transition-colors">
+                                        <Icon className="w-4 h-4 shrink-0 text-gray-400" />
+                                        {label}
+                                    </Link>
+                                ))}
+                            </div>
                         </div>
-                        Notifications
-                    </Link>
-                </div>
+
+                        <div className="px-5 py-4 flex-1">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+                                Selling
+                            </p>
+                            <div className="flex flex-col gap-0.5">
+                                {SELLER_MENU.map(({ icon: Icon, label, href }) => (
+                                    <Link key={label} href={href} onClick={closeMobileMenu}
+                                        className="flex items-center gap-3 px-2 py-2.5 rounded-xl text-sm
+                                            text-gray-700 hover:bg-teal-50 hover:text-teal-800 transition-colors">
+                                        <Icon className="w-4 h-4 shrink-0 text-gray-400" />
+                                        {label}
+                                    </Link>
+                                ))}
+
+                                {/* Sign out */}
+                                <button
+                                    onClick={handleSignOut}
+                                    disabled={signingOut}
+                                    className="flex items-center gap-3 w-full px-2 py-2.5 rounded-xl text-sm
+                                        text-red-500 hover:bg-red-50 transition-colors mt-2
+                                        disabled:opacity-60 disabled:cursor-wait">
+                                    {signingOut ? (
+                                        <svg className="w-4 h-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
+                                            <circle cx="12" cy="12" r="10" stroke="currentColor"
+                                                strokeWidth="3" strokeOpacity=".3"/>
+                                            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor"
+                                                strokeWidth="3" strokeLinecap="round"/>
+                                        </svg>
+                                    ) : (
+                                        <ArrowRightOnRectangleIcon className="w-4 h-4 shrink-0" />
+                                    )}
+                                    {signingOut ? 'Signing out…' : 'Sign Out'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Notifications footer */}
+                        <div className="px-5 py-4 border-t border-gray-100 shrink-0">
+                            <Link href="/notifications" onClick={closeMobileMenu}
+                                className="flex items-center gap-3 px-2 py-2.5 rounded-xl text-sm
+                                    text-gray-700 hover:bg-gray-50 transition-colors">
+                                <div className="relative">
+                                    <BellIcon className="w-4 h-4 text-gray-400" />
+                                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                                </div>
+                                Notifications
+                            </Link>
+                        </div>
+                    </>
+                )}
             </div>
         </>
     );
