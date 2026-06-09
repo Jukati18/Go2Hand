@@ -2,48 +2,18 @@
 
 // src/actions/auth.ts
 // ─────────────────────────────────────────────────────────────────
-// Auth server actions — run on the server even when called from
-// a client component. Uses @supabase/ssr so session cookies are
-// properly set and refreshed.
+// Auth server actions — signIn, signUp, signOut.
 //
-// Actions:
-//   actionSignIn    — email + password login
-//   actionSignUp    — register new user (creates profile row too)
-//   actionSignOut   — clear session
+// Uses createClient() from @/lib/supabase/server (the correct
+// server-side client that reads/writes cookies via next/headers).
 // ─────────────────────────────────────────────────────────────────
 
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
+import { createClient } from '@/lib/supabase/server'
 
 type ActionResult = {
     success: boolean
     error?: string
-}
-
-// ── Build a server-side Supabase client that reads/writes cookies ─
-async function createSupabaseServer() {
-    const cookieStore = await cookies()
-    return createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                getAll() {
-                    return cookieStore.getAll()
-                },
-                setAll(cookiesToSet) {
-                    try {
-                        cookiesToSet.forEach(({ name, value, options }) =>
-                            cookieStore.set(name, value, options)
-                        )
-                    } catch {
-                        // Called from a Server Component — safe to ignore.
-                    }
-                },
-            },
-        }
-    )
 }
 
 // ── Map Supabase error messages → friendly copy ───────────────────
@@ -64,14 +34,10 @@ function friendlyError(message: string): string {
 // ─────────────────────────────────────────────────────────────────
 // SIGN IN — email + password
 // ─────────────────────────────────────────────────────────────────
-export async function actionSignIn(
-    formData: FormData
-): Promise<ActionResult> {
+export async function actionSignIn(formData: FormData): Promise<ActionResult> {
     const email    = (formData.get('email')    as string)?.trim().toLowerCase()
-    const password = formData.get('password') as string
+    const password =  formData.get('password') as string
 
-    // Basic server-side validation (client already validates, but
-    // we never trust the client exclusively)
     if (!email || !password) {
         return { success: false, error: 'Email and password are required.' }
     }
@@ -79,15 +45,13 @@ export async function actionSignIn(
         return { success: false, error: 'Please enter a valid email address.' }
     }
 
-    const supabase = await createSupabaseServer()
+    const supabase = await createClient()
     const { error } = await supabase.auth.signInWithPassword({ email, password })
 
-    if (error) {
-        return { success: false, error: friendlyError(error.message) }
-    }
+    if (error) return { success: false, error: friendlyError(error.message) }
 
-    // Revalidate everything so server components re-fetch with
-    // the new session (e.g. Navbar user info).
+    // Revalidate the entire layout so Server Components re-render
+    // with the new session (Navbar user info, protected pages, etc.)
     revalidatePath('/', 'layout')
     return { success: true }
 }
@@ -95,14 +59,12 @@ export async function actionSignIn(
 // ─────────────────────────────────────────────────────────────────
 // SIGN UP — creates auth user + profile row in users table
 // ─────────────────────────────────────────────────────────────────
-export async function actionSignUp(
-    formData: FormData
-): Promise<ActionResult> {
+export async function actionSignUp(formData: FormData): Promise<ActionResult> {
     const username = (formData.get('username') as string)?.trim()
     const email    = (formData.get('email')    as string)?.trim().toLowerCase()
-    const password = formData.get('password') as string
+    const password =  formData.get('password') as string
 
-    // ── Server-side validation ──
+    // ── Server-side validation ────────────────────────────────────
     if (!username || !email || !password) {
         return { success: false, error: 'All fields are required.' }
     }
@@ -122,9 +84,9 @@ export async function actionSignUp(
         return { success: false, error: 'Password must be at least 8 characters.' }
     }
 
-    const supabase = await createSupabaseServer()
+    const supabase = await createClient()
 
-    // ── Check username availability (optional — remove if no unique index) ──
+    // ── Check username availability ───────────────────────────────
     const { data: existingUser } = await supabase
         .from('users')
         .select('id')
@@ -142,45 +104,31 @@ export async function actionSignUp(
     const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-            data: { username }, // stored in raw_user_meta_data
-        },
+        options: { data: { username } },
     })
 
-    if (authError) {
-        return { success: false, error: friendlyError(authError.message) }
-    }
+    if (authError) return { success: false, error: friendlyError(authError.message) }
 
-    // ── Create profile row (matches auth.uid()) ───────────────────
-    // This may fail if email confirmation is required and user
-    // isn't confirmed yet — that's OK, a trigger can handle it,
-    // or we catch gracefully.
+    // ── Create profile row ────────────────────────────────────────
     if (authData.user) {
-        const { error: profileError } = await supabase
-            .from('users')
-            .insert({
-                id:       authData.user.id,
-                email,
-                username,
-                role:     'buyer',
-            })
-
+        const { error: profileError } = await supabase.from('users').insert({
+            id:       authData.user.id,
+            email,
+            username,
+            role:     'buyer',
+        })
         if (profileError && !profileError.message.includes('duplicate')) {
             console.error('Profile creation failed:', profileError.message)
-            // Non-fatal — auth user was created successfully
         }
     }
 
-    // Check whether Supabase requires email confirmation
     const needsConfirmation = !authData.session
 
     revalidatePath('/', 'layout')
     return {
         success: true,
-        // Use the error field as a "soft" message when email confirmation is needed
-        error: needsConfirmation
-            ? 'CHECK_EMAIL'  // signals the UI to show a "check your inbox" screen
-            : undefined,
+        // Signal the UI to show "check your inbox" when email confirmation is on
+        error: needsConfirmation ? 'CHECK_EMAIL' : undefined,
     }
 }
 
@@ -188,12 +136,10 @@ export async function actionSignUp(
 // SIGN OUT
 // ─────────────────────────────────────────────────────────────────
 export async function actionSignOut(): Promise<ActionResult> {
-    const supabase = await createSupabaseServer()
+    const supabase = await createClient()
     const { error } = await supabase.auth.signOut()
 
-    if (error) {
-        return { success: false, error: error.message }
-    }
+    if (error) return { success: false, error: error.message }
 
     revalidatePath('/', 'layout')
     return { success: true }

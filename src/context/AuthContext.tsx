@@ -1,21 +1,19 @@
 'use client'
 
-// ============================================
-// AUTH CONTEXT — src/context/AuthContext.tsx
+// src/context/AuthContext.tsx
+// ─────────────────────────────────────────────────────────────────
+// Provides real-time Supabase session state to the entire app.
 //
-// Provides real-time Supabase session state to the
-// entire app via React Context.
+// Change from old version:
+//   OLD: import { supabase } from '@/lib/supabaseClient'
+//        → used createClient() from @supabase/supabase-js directly
+//   NEW: import { createClient } from '@/lib/supabase/client'
+//        → uses createBrowserClient from @supabase/ssr which stores
+//          sessions in cookies (not localStorage) for SSR compat.
 //
-// Features:
-//  • Subscribes to onAuthStateChange for instant updates
-//  • 14-day session persistence via Supabase's built-in
-//    localStorage token storage (configurable)
-//  • Exposes: user, profile, loading, isAuthenticated
-//  • Profile fetched from `users` table after login
-//
-// Usage in any component:
-//   const { user, profile, isAuthenticated } = useAuth()
-// ============================================
+// Everything else — onAuthStateChange, profile fetch, 14-day
+// persistence — works identically.
+// ─────────────────────────────────────────────────────────────────
 
 import {
     createContext,
@@ -26,9 +24,12 @@ import {
     type ReactNode,
 } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabase/client'
 
-// ── Public profile shape (mirrors what Navbar needs) ─────────────
+// Create the client once outside the component so it's a stable singleton.
+// createBrowserClient is safe to call at module level.
+const supabase = createClient()
+
 export interface AuthProfile {
     id: string
     username: string
@@ -43,22 +44,18 @@ interface AuthContextValue {
     session: Session | null
     loading: boolean
     isAuthenticated: boolean
-    /** Call after login/signup to manually re-fetch profile */
     refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-// ─────────────────────────────────────────────────────────────────
-// PROVIDER
-// ─────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user,    setUser]    = useState<User | null>(null)
     const [profile, setProfile] = useState<AuthProfile | null>(null)
     const [session, setSession] = useState<Session | null>(null)
-    const [loading, setLoading] = useState(true)  // true until first auth check
+    const [loading, setLoading] = useState(true)
 
-    // ── Fetch profile from users table ────────────────────────────
+    // ── Fetch our custom profile row from the users table ─────────
     const fetchProfile = useCallback(async (userId: string, email: string | null) => {
         try {
             const { data } = await supabase
@@ -77,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 })
             }
         } catch {
-            // Profile may not exist yet (e.g. mid-signup) — fail silently
+            // Profile row may not exist yet (e.g. mid sign-up) — fail silently.
             setProfile(null)
         }
     }, [])
@@ -88,9 +85,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await fetchProfile(user.id, user.email ?? null)
     }, [user, fetchProfile])
 
-    // ── Bootstrap: check existing session on mount ────────────────
+    // ── Bootstrap: read existing session on mount ─────────────────
     useEffect(() => {
-        // getSession() reads from localStorage — instant, no network needed
+        // getSession() is safe on the CLIENT SIDE (browser).
+        // The phantom-session bug only affects SERVER-SIDE code (proxy).
+        // Here in the browser, getSession() reads the real cookie value.
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session)
             setUser(session?.user ?? null)
@@ -103,21 +102,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         })
 
-        // ── Subscribe to auth state changes ───────────────────────
-        // This fires on: login, logout, token refresh, OAuth callback
+        // Subscribe to auth events: login, logout, token refresh, OAuth callback
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
+            async (_event, session) => {
                 setSession(session)
                 setUser(session?.user ?? null)
 
                 if (session?.user) {
                     await fetchProfile(session.user.id, session.user.email ?? null)
                 } else {
-                    // Signed out
                     setProfile(null)
                 }
 
-                // Stop showing the loading spinner after the first real event
                 setLoading(false)
             }
         )
@@ -139,9 +135,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
 }
 
-// ─────────────────────────────────────────────────────────────────
-// HOOK
-// ─────────────────────────────────────────────────────────────────
 export function useAuth(): AuthContextValue {
     const ctx = useContext(AuthContext)
     if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>')
