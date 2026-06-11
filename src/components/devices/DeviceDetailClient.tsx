@@ -5,6 +5,9 @@
 // DEVICE DETAIL PAGE — Fully responsive
 // Mobile: buy card first → gallery → specs → reviews
 // Desktop: two-column (specs | buy card sticky)
+//
+// Change: "Buy Now" Link replaced with AddToCartButton.
+// Checkout happens from the /cart page instead.
 // ============================================
 
 import { useState } from 'react';
@@ -23,6 +26,7 @@ import RatingStars from '@/components/layout/RatingStars';
 import Footer from '@/components/layout/Footer';
 import WatchlistButton from '@/components/watchlist/WatchlistButton';
 import ReviewList from '@/components/reviews/ReviewList';
+import AddToCartButton from '@/components/cart/AddToCartButton';
 
 const CHECK_DOT: Record<CheckStatus, string> = {
     ok:   'bg-emerald-500',
@@ -74,8 +78,6 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
 
     return (
         <div className="min-h-screen bg-[#F4F2EE]">
-            
-            {/* ── Thêm Navbar để giữ layout responsive toàn trang ── */}
             <Navbar />
 
             {/* ── Breadcrumb ── */}
@@ -96,22 +98,14 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                     </span>
                 </nav>
 
-                {/* ==================== MAIN GRID ====================
-                    Mobile: single column, buy card first (order-1), then content (order-2)
-                    Desktop: two columns side-by-side, content left (order-1), buy card right (order-2)
-                */}
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 lg:gap-8 py-5 sm:py-6 pb-12 sm:pb-16 items-start">
 
-                    {/* ===== LEFT COLUMN — gallery + specs + reviews ===== */}
-                    {/* On mobile: order-2 (below buy card), on desktop: order-1 (left) */}
+                    {/* ===== LEFT COLUMN ===== */}
                     <div className="order-2 lg:order-1 flex flex-col gap-4 sm:gap-6">
 
-                        {/* ── IMAGE GALLERY ──
-                            Mobile: main image on top, thumbnails as horizontal scroll below
-                            Desktop: thumbnails column on left, main image right
-                        */}
+                        {/* ── IMAGE GALLERY ── */}
                         <div className="animate-[fadeUp_.5s_ease_both_.05s]">
-                            {/* Desktop gallery layout */}
+                            {/* Desktop gallery */}
                             <div className="hidden sm:flex gap-4">
                                 <div className="flex flex-col gap-2.5">
                                     {device.images.map((src, i) => (
@@ -133,13 +127,13 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                                         width={500} height={500}
                                         className="w-[75%] h-[75%] object-contain group-hover:scale-105 transition-transform duration-350"
                                         unoptimized />
-                                    <button className="absolute bottom-4 right-4 w-9 h-9 bg-white/80 backdrop-blur-sm rounded-lg border border-gray-200 flex items-center justify-center hover:bg-white hover:shadow-sm transition-all" aria-label="Zoom image">
+                                    <button className="absolute bottom-4 right-4 w-9 h-9 bg-white/80 backdrop-blur-sm rounded-lg border border-gray-200 flex items-center justify-center hover:bg-white hover:shadow-sm transition-all">
                                         <MagnifyingGlassPlusIcon className="w-4 h-4 text-gray-500" />
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Mobile gallery layout: main image + horizontal thumbnail strip */}
+                            {/* Mobile gallery */}
                             <div className="sm:hidden">
                                 <div className="relative aspect-square rounded-2xl bg-white border border-gray-100 shadow-md flex items-center justify-center overflow-hidden mb-3">
                                     {device.isVerified && (
@@ -235,9 +229,7 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                         </div>
                     </div>
 
-                    {/* ===== RIGHT COLUMN — buy card + seller + IMEI (sticky on desktop) =====
-                        Mobile: order-1 (shown first), on desktop: order-2 (right side)
-                    */}
+                    {/* ===== RIGHT COLUMN — buy card + seller + IMEI ===== */}
                     <div className="order-1 lg:order-2 flex flex-col gap-4 lg:sticky lg:top-[78px]">
 
                         {/* ── BUY CARD ── */}
@@ -294,19 +286,17 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                                 ))}
                             </div>
 
-                            {/* Buy Now CTA */}
-                            <Link href={`/checkout/${device.id}`}
-                                className="w-full h-[50px] sm:h-[52px] bg-teal-800 hover:bg-teal-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 text-[15px] transition-all hover:-translate-y-0.5 hover:shadow-lg mb-2.5">
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
-                                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-                                </svg>
-                                Buy Now — ${currentPrice}
-                            </Link>
+                            {/* ── ADD TO CART (replaces old Buy Now link) ── */}
+                            <AddToCartButton
+                                deviceId={device.id}
+                                title={device.fullName}
+                                price={currentPrice}
+                                imageUrl={device.images[0] ?? null}
+                            />
 
                             {/* Make Offer */}
                             <button onClick={() => showToast('Offer sent to seller!')}
-                                className="w-full h-12 border-2 border-teal-800 text-teal-800 font-semibold rounded-xl flex items-center justify-center gap-2 text-sm hover:bg-cyan-50 transition-colors">
+                                className="w-full h-12 mt-2.5 border-2 border-teal-800 text-teal-800 font-semibold rounded-xl flex items-center justify-center gap-2 text-sm hover:bg-cyan-50 transition-colors">
                                 <ChatBubbleLeftIcon className="w-4 h-4" />
                                 Make an Offer
                             </button>
@@ -400,13 +390,12 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                     </div>
                 </div>
 
-                {/* ==================== SIMILAR DEVICES ==================== */}
+                {/* ── SIMILAR DEVICES ── */}
                 {similarDevices.length > 0 && (
                     <div className="pb-12 sm:pb-16">
                         <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-5">
                             Similar Devices You May Like
                         </h2>
-                        {/* 2-col on mobile → 4-col on lg */}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                             {similarDevices.map(d => <DeviceCard key={d.id} device={d} />)}
                         </div>
