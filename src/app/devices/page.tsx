@@ -8,6 +8,7 @@ import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import DeviceCard from '@/components/devices/DeviceCard'
 import FilterSidebar, { type SidebarFilters } from '@/components/devices/FilterSidebar'
+import ModelFilterStrip from '@/components/devices/ModelFilterStrip'
 import { useFilterOptions } from '@/hooks/useFilterOptions'
 import { getDevices, type ListingFilters } from '@/services/deviceService'
 import type { Device } from '@/types/device'
@@ -29,8 +30,7 @@ const CONDITION_LABELS: Record<string, string> = {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// DevicesContent — real component inside <Suspense> so Next.js can
-// prerender the outer shell while this reads useSearchParams().
+// DevicesContent — real component inside <Suspense>
 // ─────────────────────────────────────────────────────────────────
 function DevicesContent() {
     const searchParams = useSearchParams()
@@ -168,7 +168,7 @@ function DevicesContent() {
             </div>
 
             {/* Search bar + mobile filter button */}
-            <div className="mb-5 sm:mb-6 flex gap-2 sm:gap-3">
+            <div className="mb-4 sm:mb-5 flex gap-2 sm:gap-3">
                 <div className="flex-1 flex items-center gap-2 bg-white border border-gray-200
                     rounded-xl px-3 sm:px-4 py-2.5 focus-within:border-teal-500
                     focus-within:ring-2 focus-within:ring-teal-100 transition-all">
@@ -211,6 +211,9 @@ function DevicesContent() {
                     )}
                 </button>
             </div>
+
+            {/* ── MODEL FILTER STRIP — shows when search matches device models ── */}
+            <ModelFilterStrip query={search} />
 
             {/* Active filter chips */}
             {activeFilterCount > 0 && (
