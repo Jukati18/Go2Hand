@@ -4,15 +4,11 @@
 // ─────────────────────────────────────────────────────────────────
 // Provides real-time Supabase session state to the entire app.
 //
-// Change from old version:
-//   OLD: import { supabase } from '@/lib/supabaseClient'
-//        → used createClient() from @supabase/supabase-js directly
-//   NEW: import { createClient } from '@/lib/supabase/client'
-//        → uses createBrowserClient from @supabase/ssr which stores
-//          sessions in cookies (not localStorage) for SSR compat.
-//
-// Everything else — onAuthStateChange, profile fetch, 14-day
-// persistence — works identically.
+// Flow:
+//   Server Action sets/clears cookie
+//   → caller invokes reloadSession()
+//   → we call supabase.auth.getSession() to read the new cookie value
+//   → state updates → Navbar re-renders with correct avatar / buttons
 // ─────────────────────────────────────────────────────────────────
 
 import {
@@ -26,8 +22,7 @@ import {
 import type { User, Session } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 
-// Create the client once outside the component so it's a stable singleton.
-// createBrowserClient is safe to call at module level.
+// Singleton browser client — safe to create at module level
 const supabase = createClient()
 
 export interface AuthProfile {
@@ -44,6 +39,10 @@ interface AuthContextValue {
     session: Session | null
     loading: boolean
     isAuthenticated: boolean
+    /** Force a fresh session read from the cookie.
+     *  Call this immediately after a Server Action sign-in/sign-out
+     *  so the Navbar updates without requiring a full page refresh. */
+    reloadSession: () => Promise<void>
     refreshProfile: () => Promise<void>
 }
 
@@ -74,22 +73,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 })
             }
         } catch {
-            // Profile row may not exist yet (e.g. mid sign-up) — fail silently.
+            // Profile row may not exist yet (e.g. mid sign-up) — fail silently
             setProfile(null)
         }
     }, [])
 
-    // ── Public: force re-fetch (called after profile edit) ────────
+    // ── PUBLIC: force re-fetch profile only (e.g. after profile edit) ─
     const refreshProfile = useCallback(async () => {
         if (!user) return
         await fetchProfile(user.id, user.email ?? null)
     }, [user, fetchProfile])
 
+    // ── PUBLIC: re-read the session cookie and sync all state ─────
+    // This is the key fix. After a Server Action mutates the auth cookie,
+    // call this to make the client aware of the change immediately.
+    const reloadSession = useCallback(async () => {
+        setLoading(true)
+        try {
+            // getSession() reads from the cookie — picks up server-side changes
+            const { data: { session: newSession } } = await supabase.auth.getSession()
+
+            setSession(newSession)
+            setUser(newSession?.user ?? null)
+
+            if (newSession?.user) {
+                await fetchProfile(newSession.user.id, newSession.user.email ?? null)
+            } else {
+                // Signed out — clear profile
+                setProfile(null)
+            }
+        } finally {
+            setLoading(false)
+        }
+    }, [fetchProfile])
+
     // ── Bootstrap: read existing session on mount ─────────────────
     useEffect(() => {
-        // getSession() is safe on the CLIENT SIDE (browser).
-        // The phantom-session bug only affects SERVER-SIDE code (proxy).
-        // Here in the browser, getSession() reads the real cookie value.
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session)
             setUser(session?.user ?? null)
@@ -102,16 +121,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         })
 
-        // Subscribe to auth events: login, logout, token refresh, OAuth callback
+        // Subscribe to auth events: OAuth callback, token refresh,
+        // and crucially SIGNED_OUT when supabase.auth.signOut() is called.
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
-                setSession(session)
-                setUser(session?.user ?? null)
-
-                if (session?.user) {
-                    await fetchProfile(session.user.id, session.user.email ?? null)
-                } else {
+            async (event, session) => {
+                // On sign-out: clear everything immediately without async work
+                if (event === 'SIGNED_OUT' || !session) {
+                    setSession(null)
+                    setUser(null)
                     setProfile(null)
+                    setLoading(false)
+                    return
+                }
+
+                setSession(session)
+                setUser(session.user)
+
+                if (session.user) {
+                    await fetchProfile(session.user.id, session.user.email ?? null)
                 }
 
                 setLoading(false)
@@ -128,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             session,
             loading,
             isAuthenticated: !!user,
+            reloadSession,
             refreshProfile,
         }}>
             {children}

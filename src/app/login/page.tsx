@@ -1,30 +1,16 @@
 'use client'
 
 // src/app/login/page.tsx
-// ─────────────────────────────────────────────────────────────────
-// Login page
-//
-// Auth methods:
-//   1. Email + password
-//   2. Google OAuth
-//   3. Facebook OAuth (NEW)
-//
-// Features:
-//   • Real-time field validation on blur
-//   • Show/hide password toggle
-//   • 14-day session persistence via Supabase refresh tokens
-//   • Redirects to ?next= URL after success
-//   • Friendly server error messages
-// ─────────────────────────────────────────────────────────────────
 
 import { useState, useCallback, FormEvent, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-    EyeIcon, EyeSlashIcon, ShieldCheckIcon,
+    EyeIcon, EyeSlashIcon,
     ExclamationCircleIcon,
 } from '@heroicons/react/24/outline'
 import { actionSignIn } from '@/actions/auth'
+import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabaseClient'
 
 // ── Validation helpers ────────────────────────────────────────────
@@ -57,7 +43,6 @@ const TRUST = [
     { icon: '↩️', text: '30-day hassle-free returns' },
 ]
 
-// ── Facebook SVG icon ─────────────────────────────────────────────
 function FacebookIcon({ className = "w-5 h-5" }: { className?: string }) {
     return (
         <svg className={className} viewBox="0 0 24 24" fill="#1877F2">
@@ -66,7 +51,6 @@ function FacebookIcon({ className = "w-5 h-5" }: { className?: string }) {
     )
 }
 
-// ── Google SVG icon ───────────────────────────────────────────────
 function GoogleIcon() {
     return (
         <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -83,6 +67,9 @@ function LoginForm() {
     const router       = useRouter()
     const searchParams = useSearchParams()
     const nextUrl      = searchParams.get('next') ?? '/'
+
+    // Get reloadSession from AuthContext — this is the key fix
+    const { reloadSession } = useAuth()
 
     const [email,         setEmail]         = useState('')
     const [password,      setPassword]      = useState('')
@@ -121,9 +108,14 @@ function LoginForm() {
             return
         }
 
+        // KEY FIX: Server Action set the auth cookie. Now tell the
+        // client-side AuthContext to re-read it so the Navbar updates
+        // immediately — without waiting for a page refresh.
+        await reloadSession()
+
+        // Navigate to the intended destination
         router.push(nextUrl)
-        router.refresh()
-    }, [email, password, isValid, nextUrl, router])
+    }, [email, password, isValid, nextUrl, router, reloadSession])
 
     // ── Google OAuth ──────────────────────────────────────────────
     const handleGoogle = useCallback(async () => {
@@ -133,12 +125,10 @@ function LoginForm() {
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                // IMPORTANT: This URL must be in Supabase Auth → URL Configuration → Redirect URLs
                 redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextUrl)}`,
                 queryParams: {
-                    // Request offline access so we get a refresh token (for 14-day persistence)
                     access_type: 'offline',
-                    prompt: 'select_account', // Always show account picker
+                    prompt: 'select_account',
                 },
             },
         })
@@ -147,20 +137,11 @@ function LoginForm() {
             setServerError(error.message)
             setGoogleLoading(false)
         }
-        // On success: browser redirects to Google → back to /auth/callback
+        // OAuth: browser redirects to Google → back to /auth/callback
+        // onAuthStateChange in AuthContext handles session sync on return
     }, [nextUrl])
 
     // ── Facebook OAuth ────────────────────────────────────────────
-    // Prerequisites (one-time setup in Supabase Dashboard):
-    //   1. Go to Authentication → Providers → Facebook
-    //   2. Enable it and paste your Facebook App ID + App Secret
-    //   3. Add `https://YOUR_PROJECT.supabase.co/auth/v1/callback`
-    //      to your Facebook App's "Valid OAuth Redirect URIs"
-    //   4. Add /auth/callback to Supabase's Redirect URL allowlist
-    //
-    // To get a Facebook App ID:
-    //   → developers.facebook.com → My Apps → Create App
-    //   → Choose "Consumer" → add "Facebook Login" product
     const handleFacebook = useCallback(async () => {
         setFbLoading(true)
         setServerError('')
@@ -169,12 +150,11 @@ function LoginForm() {
             provider: 'facebook',
             options: {
                 redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextUrl)}`,
-                scopes: 'email,public_profile', // Minimum required scopes
+                scopes: 'email,public_profile',
             },
         })
 
         if (error) {
-            // Common error: provider not enabled in Supabase yet
             setServerError(
                 error.message.includes('provider is not enabled')
                     ? 'Facebook login is not enabled yet. Please use Google or email.'

@@ -2,14 +2,16 @@
 
 // src/components/layout/Navbar.tsx
 // ============================================
-// NAVBAR — Real auth state via AuthContext
+// SIGN-OUT FIX:
+//   The root problem was calling supabase.auth.getSession() after the
+//   server cookie was cleared — the client SDK still had the session
+//   cached in memory, so getSession() returned stale data.
 //
-// Changes from previous version:
-//  • Reads from useAuth() instead of hardcoded "AJ"
-//  • Shows "Sign In" + "Sign Up" buttons when logged out
-//  • Shows real user avatar/initials + dropdown when logged in
-//  • Handles loading state (skeleton avatar)
-//  • Session persists 14 days via Supabase localStorage tokens
+//   Solution: call supabase.auth.signOut() on the CLIENT directly.
+//   This clears both the server cookie AND the in-memory cache, then
+//   onAuthStateChange fires in AuthContext → state clears → Navbar
+//   re-renders with Sign In/Sign Up buttons immediately.
+//   Then we redirect to /login.
 // ============================================
 
 import Link from "next/link";
@@ -24,7 +26,10 @@ import {
 import SearchBar from "@/components/layout/SearchBar";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
-import { actionSignOut } from "@/actions/auth";
+import { createClient } from "@/lib/supabase/client";
+
+// Singleton client — safe to create at module level
+const supabase = createClient();
 
 const CATEGORIES = [
     { icon: '📱', label: 'Smartphones', href: '/categories/smartphones', desc: '1,200+ listings' },
@@ -48,17 +53,10 @@ const SELLER_MENU = [
     { icon: Cog6ToothIcon,             label: 'Settings',        href: '/settings'          },
 ];
 
-// ── Generate initials from a name or username ─────────────────────
 function getInitials(name: string): string {
-    return name
-        .split(' ')
-        .map(w => w[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2)
+    return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
-// ── Pick an avatar gradient from a seed string ────────────────────
 const GRADIENTS = [
     'from-teal-500 to-emerald-500',
     'from-violet-500 to-purple-500',
@@ -82,7 +80,6 @@ export default function Navbar() {
     const [signingOut,       setSigningOut]        = useState(false);
     const userMenuRef = useRef<HTMLDivElement>(null);
 
-    // ── Derived display values from real auth ─────────────────────
     const displayName = profile?.fullName ?? profile?.username ?? user?.email?.split('@')[0] ?? ''
     const initials    = displayName ? getInitials(displayName) : '?'
     const gradient    = user ? pickGradient(user.id) : 'from-gray-400 to-gray-500'
@@ -109,30 +106,45 @@ export default function Navbar() {
     function closeMobileMenu() { setMobileMenuOpen(false); }
 
     // ── Sign out handler ──────────────────────────────────────────
+    // WHY client-side supabase.auth.signOut():
+    //   The previous approach called actionSignOut() (server) then
+    //   reloadSession() → but the client SDK caches the session in
+    //   memory, so getSession() still returned the old session even
+    //   after the server cleared the cookie.
+    //
+    //   Calling supabase.auth.signOut() on the CLIENT:
+    //   1. Clears the in-memory session cache immediately
+    //   2. Clears the cookie
+    //   3. Fires onAuthStateChange('SIGNED_OUT') → AuthContext clears
+    //      user/profile → Navbar re-renders with Sign In/Sign Up
+    //   4. We then redirect to /login
     const handleSignOut = useCallback(async () => {
         setSigningOut(true);
         setUserMenuOpen(false);
         closeMobileMenu();
 
-        const result = await actionSignOut();
-
-        if (result.success) {
-            router.push('/');
-            router.refresh();
-        } else {
-            console.error('Sign out failed:', result.error);
+        try {
+            // Single call that clears both memory cache + cookie
+            // and triggers onAuthStateChange in AuthContext
+            await supabase.auth.signOut();
+            // AuthContext's onAuthStateChange listener fires here,
+            // setting user=null, profile=null, isAuthenticated=false
+            // → Navbar immediately shows Sign In/Sign Up buttons
+        } catch (err) {
+            console.error('Sign out error:', err);
+        } finally {
+            setSigningOut(false);
         }
-        setSigningOut(false);
+
+        // Redirect to login regardless of outcome
+        router.push('/login');
     }, [router]);
 
-    // ── Avatar component — real image or gradient initials ────────
+    // ── Avatar component ──────────────────────────────────────────
     const AvatarCircle = ({ size = 'sm' }: { size?: 'sm' | 'md' }) => {
-        const cls = size === 'sm'
-            ? 'w-8 h-8 text-xs'
-            : 'w-10 h-10 text-sm'
+        const cls = size === 'sm' ? 'w-8 h-8 text-xs' : 'w-10 h-10 text-sm'
 
         if (loading) {
-            // Skeleton pulse while auth resolves
             return <div className={`${cls} rounded-full bg-gray-200 animate-pulse`} />
         }
 
@@ -232,7 +244,7 @@ export default function Navbar() {
                             Sell Device
                         </Link>
 
-                        {/* ── LOGGED IN: notification + messages + cart + watchlist + avatar ── */}
+                        {/* ── LOGGED IN ── */}
                         {isAuthenticated && (
                             <>
                                 {/* Notification bell */}
@@ -280,7 +292,7 @@ export default function Navbar() {
                                     <HeartIcon className="w-[18px] h-[18px] text-gray-500" />
                                 </Link>
 
-                                {/* Avatar + user dropdown */}
+                                {/* Avatar + dropdown */}
                                 <div ref={userMenuRef} className="relative ml-1">
                                     <button
                                         onClick={() => setUserMenuOpen(o => !o)}
@@ -370,7 +382,7 @@ export default function Navbar() {
                             </>
                         )}
 
-                        {/* ── LOGGED OUT: Sign In + Sign Up buttons ── */}
+                        {/* ── LOGGED OUT ── */}
                         {!isAuthenticated && !loading && (
                             <div className="flex items-center gap-2 ml-2">
                                 <Link
@@ -393,7 +405,7 @@ export default function Navbar() {
                             </div>
                         )}
 
-                        {/* Loading skeleton for auth area */}
+                        {/* Loading skeleton */}
                         {loading && (
                             <div className="flex items-center gap-2 ml-2">
                                 <div className="w-20 h-8 bg-gray-100 rounded-full animate-pulse" />
@@ -479,7 +491,7 @@ export default function Navbar() {
                     </button>
                 </div>
 
-                {/* ── LOGGED IN: user info ── */}
+                {/* LOGGED IN: user info */}
                 {isAuthenticated && (
                     <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
                         <AvatarCircle size="md" />
@@ -490,7 +502,7 @@ export default function Navbar() {
                     </div>
                 )}
 
-                {/* ── LOGGED OUT: sign in/up in drawer ── */}
+                {/* LOGGED OUT: sign in/up */}
                 {!isAuthenticated && !loading && (
                     <div className="flex flex-col gap-2 px-5 py-4 border-b border-gray-100">
                         <Link href="/login" onClick={closeMobileMenu}
@@ -540,7 +552,7 @@ export default function Navbar() {
                     </div>
                 </div>
 
-                {/* ── LOGGED IN: buyer + seller sections ── */}
+                {/* LOGGED IN: buyer + seller sections */}
                 {isAuthenticated && (
                     <>
                         <div className="px-5 py-4 border-b border-gray-100">
