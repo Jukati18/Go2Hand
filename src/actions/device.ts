@@ -15,7 +15,7 @@
 // ============================================
 
 import { revalidatePath } from 'next/cache'
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabase/server'
 import {
     createDevice,
     updateDevice,
@@ -28,6 +28,7 @@ import type { CreateDeviceInput, UpdateDeviceInput } from '@/types/deviceInput'
 // Returns null if not authenticated
 // ─────────────────────────────────────────────────────────────────────────────
 async function getCurrentUserId(): Promise<string | null> {
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     return user?.id ?? null
 }

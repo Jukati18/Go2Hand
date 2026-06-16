@@ -6,7 +6,7 @@
 // ============================================
 
 import { revalidatePath } from 'next/cache'
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabase/server'
 import {
     createOrder,
     markOrderShipped,
@@ -21,6 +21,7 @@ import type { CreateOrderInput } from '@/types/order'
 type ActionResult = { success: boolean; error?: string; orderId?: string }
 
 async function getCurrentUserId(): Promise<string | null> {
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     return user?.id ?? null
 }
@@ -154,6 +155,7 @@ export async function actionCancelOrder(orderId: string): Promise<ActionResult> 
     if (!userId) return { success: false, error: 'You must be logged in' }
 
     try {
+        const supabase = await createClient()
         // Fetch the stripe_payment_intent_id before cancelling
         const { data: order } = await supabase
             .from('orders')

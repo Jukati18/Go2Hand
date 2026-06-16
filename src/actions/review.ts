@@ -15,7 +15,7 @@
 // ============================================
 
 import { revalidatePath } from 'next/cache'
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabase/server'
 import { createReview } from '@/services/reviewWriteService'
 import type { CreateReviewInput } from '@/types/review'
 
@@ -27,6 +27,7 @@ type ActionResult = {
 
 // ── Get current authenticated user ────────────────────────────────
 async function getCurrentUserId(): Promise<string | null> {
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     return user?.id ?? null
 }

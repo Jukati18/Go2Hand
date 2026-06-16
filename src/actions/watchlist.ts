@@ -2,35 +2,32 @@
 
 // ============================================
 // WATCHLIST SERVER ACTIONS
-//
-// The watchlist (saved devices) lets buyers
-// bookmark devices they're interested in.
 // Table: watchlist (id, user_id, product_id, created_at)
 // ============================================
 
 import { revalidatePath } from 'next/cache'
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabase/server'
 
-async function getCurrentUserId(): Promise<string | null> {
+// Returns a request-scoped Supabase client + the current user's id.
+// Every function below uses THIS client, not a global singleton.
+async function getCurrentUserClient() {
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    return user?.id ?? null
+    return { supabase, userId: user?.id ?? null }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ADD to watchlist
-// Returns { success, alreadySaved } — "alreadySaved" lets the UI
-// show the correct state without a separate check call.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function actionAddToWatchlist(
     productId: string
 ): Promise<{ success: boolean; alreadySaved?: boolean; error?: string }> {
-    const userId = await getCurrentUserId()
+    const { supabase, userId } = await getCurrentUserClient()
     if (!userId) {
         return { success: false, error: 'You must be logged in to save devices' }
     }
 
     try {
-        // upsert = insert OR ignore if already exists (no duplicate rows)
         const { error } = await supabase
             .from('watchlist')
             .upsert(
@@ -44,7 +41,6 @@ export async function actionAddToWatchlist(
         revalidatePath(`/devices/${productId}`)
 
         return { success: true }
-
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Something went wrong'
         return { success: false, error: message }
@@ -57,7 +53,7 @@ export async function actionAddToWatchlist(
 export async function actionRemoveFromWatchlist(
     productId: string
 ): Promise<{ success: boolean; error?: string }> {
-    const userId = await getCurrentUserId()
+    const { supabase, userId } = await getCurrentUserClient()
     if (!userId) {
         return { success: false, error: 'You must be logged in' }
     }
@@ -75,7 +71,6 @@ export async function actionRemoveFromWatchlist(
         revalidatePath(`/devices/${productId}`)
 
         return { success: true }
-
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Something went wrong'
         return { success: false, error: message }
@@ -84,10 +79,9 @@ export async function actionRemoveFromWatchlist(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CHECK if a specific device is in the user's watchlist
-// Used to show the filled/unfilled heart icon on the detail page
 // ─────────────────────────────────────────────────────────────────────────────
 export async function isInWatchlist(productId: string): Promise<boolean> {
-    const userId = await getCurrentUserId()
+    const { supabase, userId } = await getCurrentUserClient()
     if (!userId) return false
 
     const { data } = await supabase
@@ -95,17 +89,16 @@ export async function isInWatchlist(productId: string): Promise<boolean> {
         .select('id')
         .eq('user_id', userId)
         .eq('product_id', productId)
-        .maybeSingle()   // returns null instead of error if not found
+        .maybeSingle()
 
     return data !== null
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET all watchlist entries for the current user
-// Joins with products so we get full device info
 // ─────────────────────────────────────────────────────────────────────────────
 export async function getWatchlist() {
-    const userId = await getCurrentUserId()
+    const { supabase, userId } = await getCurrentUserClient()
     if (!userId) return []
 
     const { data, error } = await supabase
@@ -129,25 +122,22 @@ export async function getWatchlist() {
         return []
     }
 
-    // Filter out products that were deleted/sold (status not active)
     return (data ?? []).filter(
         (entry) => (entry.product as any)?.status === 'active'
     )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TOGGLE — single action for the heart button (add if not saved, remove if saved)
-// Returns the new saved state so the UI can update instantly
+// TOGGLE — single action for the heart button
 // ─────────────────────────────────────────────────────────────────────────────
 export async function actionToggleWatchlist(
     productId: string
 ): Promise<{ success: boolean; isSaved: boolean; error?: string }> {
-    const userId = await getCurrentUserId()
+    const { userId } = await getCurrentUserClient()
     if (!userId) {
         return { success: false, isSaved: false, error: 'Login required' }
     }
 
-    // Check current state first
     const saved = await isInWatchlist(productId)
 
     if (saved) {
