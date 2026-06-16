@@ -3,7 +3,7 @@
 // ORDER WRITE SERVICE — create & status updates
 // ============================================
 
-import { supabase } from '@/lib/supabaseClient'
+import { supabaseAdmin as supabase } from '@/lib/supabase/admin'
 import type { CreateOrderInput, OrderStatus } from '@/types/order'
 
 const PLATFORM_FEE_RATE = 0.05

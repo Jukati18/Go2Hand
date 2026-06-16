@@ -32,7 +32,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
-import { supabase } from '@/lib/supabaseClient'
+import { supabaseAdmin as supabase } from '@/lib/supabase/admin'
 
 // Force dynamic so Next.js never statically renders this route
 export const dynamic = 'force-dynamic'

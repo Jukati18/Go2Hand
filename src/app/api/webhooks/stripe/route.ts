@@ -13,7 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { confirmOrderPayment } from '@/services/orderWriteService'
-import { supabase } from '@/lib/supabaseClient'
+import { supabaseAdmin as supabase } from '@/lib/supabase/admin'
 import Stripe from 'stripe'
 
 export const dynamic = 'force-dynamic'
