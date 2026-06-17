@@ -7,6 +7,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { stripe } from '@/lib/stripe'
 import {
     createOrder,
     markOrderShipped,
@@ -93,31 +94,54 @@ export async function actionMarkReceived(orderId: string): Promise<ActionResult>
 }
 
 // ─────────────────────────────────────────────────────────────────
-// COMPLETE ORDER — Stripe capture + DB update
+// COMPLETE ORDER — buyer approves, Stripe capture + DB update
 //
-// Calls the /api/orders/[id]/release endpoint which:
-//   1. Calls stripe.paymentIntents.capture()  ← money moves
-//   2. Updates order status to 'completed'
+// FIXED: previously this called fetch('/api/orders/[id]/release')
+// and tried to forward the session with
+// `(await import('next/headers')).cookies().toString()`.
+// `cookies()` is async here, so calling it without `await` returns
+// an un-resolved value with no `.toString()` — that's the exact
+// "(intermediate value).cookies(...).toString is not a function"
+// error. Instead of patching that and keeping the internal HTTP
+// hop, this now does the Stripe capture + DB update directly,
+// using the request's own Supabase session — same logic the API
+// route had, just inline.
 // ─────────────────────────────────────────────────────────────────
 export async function actionCompleteOrder(orderId: string): Promise<ActionResult> {
-    const userId = await getCurrentUserId()
-    if (!userId) return { success: false, error: 'You must be logged in' }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'You must be logged in' }
 
     try {
-        // Call the release API route — it handles both Stripe capture + DB update
-        const res = await fetch(
-            `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/orders/${orderId}/release`,
-            {
-                method: 'POST',
-                headers: {
-                    // Forward the cookie so the API can verify the user session
-                    Cookie: (await import('next/headers')).cookies().toString(),
-                },
-            }
-        )
+        const { data: order, error: fetchErr } = await supabase
+            .from('orders')
+            .select('id, buyer_id, status, stripe_payment_intent_id')
+            .eq('id', orderId)
+            .single()
 
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? 'Release failed')
+        if (fetchErr || !order) {
+            return { success: false, error: 'Order not found' }
+        }
+        if (order.buyer_id !== user.id) {
+            return { success: false, error: 'Forbidden' }
+        }
+        if (order.status !== 'in_inspection') {
+            return {
+                success: false,
+                error: `Cannot release payment — order status is '${order.status}'`,
+            }
+        }
+
+        // Capture the Stripe PaymentIntent — this is the moment money
+        // actually moves from the buyer's held authorization to
+        // Go2Hand's Stripe balance.
+        if (order.stripe_payment_intent_id) {
+            await stripe.paymentIntents.capture(order.stripe_payment_intent_id)
+        } else {
+            console.warn('[actionCompleteOrder] No stripe_payment_intent_id on order', orderId)
+        }
+
+        await completeOrder(orderId, user.id)
 
         revalidateOrderPages(orderId)
         return { success: true }
@@ -156,7 +180,6 @@ export async function actionCancelOrder(orderId: string): Promise<ActionResult> 
 
     try {
         const supabase = await createClient()
-        // Fetch the stripe_payment_intent_id before cancelling
         const { data: order } = await supabase
             .from('orders')
             .select('stripe_payment_intent_id, status')
@@ -165,14 +188,11 @@ export async function actionCancelOrder(orderId: string): Promise<ActionResult> 
 
         await cancelOrder(orderId, userId)
 
-        // If there's an active Stripe PaymentIntent, cancel it to release the hold
         if (order?.stripe_payment_intent_id && ['pending', 'paid'].includes(order.status ?? '')) {
             try {
-                const { stripe } = await import('@/lib/stripe')
                 await stripe.paymentIntents.cancel(order.stripe_payment_intent_id)
             } catch (stripeErr) {
                 console.error('[actionCancelOrder] Stripe cancel failed:', stripeErr)
-                // DB is already updated — log and continue
             }
         }
 
@@ -185,25 +205,63 @@ export async function actionCancelOrder(orderId: string): Promise<ActionResult> 
 }
 
 // ─────────────────────────────────────────────────────────────────
-// REFUND (admin only) — handled via /api/orders/[id]/refund
+// REFUND (admin only)
+//
+// FIXED: same root cause as actionCompleteOrder above. Moved the
+// release-the-hold / issue-refund logic in-line so there's no
+// internal fetch and no cookie-forwarding involved.
 // ─────────────────────────────────────────────────────────────────
 export async function actionRefundOrder(orderId: string): Promise<ActionResult> {
-    const userId = await getCurrentUserId()
-    if (!userId) return { success: false, error: 'You must be logged in' }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'You must be logged in' }
 
     try {
-        const res = await fetch(
-            `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/orders/${orderId}/refund`,
-            {
-                method: 'POST',
-                headers: {
-                    Cookie: (await import('next/headers')).cookies().toString(),
-                },
-            }
-        )
+        const { data: profile } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single()
 
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? 'Refund failed')
+        if (profile?.role !== 'admin') {
+            return { success: false, error: 'Admin access required' }
+        }
+
+        const { data: order, error: fetchErr } = await supabase
+            .from('orders')
+            .select('id, status, stripe_payment_intent_id, product_id')
+            .eq('id', orderId)
+            .single()
+
+        if (fetchErr || !order) {
+            return { success: false, error: 'Order not found' }
+        }
+        if (order.status !== 'disputed') {
+            return { success: false, error: `Cannot refund — order status is '${order.status}'` }
+        }
+
+        if (order.stripe_payment_intent_id) {
+            try {
+                const pi = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id)
+
+                if (pi.status === 'requires_capture') {
+                    await stripe.paymentIntents.cancel(order.stripe_payment_intent_id)
+                } else if (pi.status === 'succeeded') {
+                    await stripe.refunds.create({ payment_intent: order.stripe_payment_intent_id })
+                } else {
+                    console.warn('[actionRefundOrder] PaymentIntent in unexpected status:', pi.status)
+                }
+            } catch (stripeErr) {
+                console.error('[actionRefundOrder] Stripe error:', stripeErr)
+            }
+        }
+
+        await refundOrder(orderId)
+
+        await supabase
+            .from('products')
+            .update({ status: 'active', updated_at: new Date().toISOString() })
+            .eq('id', order.product_id)
 
         revalidateOrderPages(orderId)
         return { success: true }
