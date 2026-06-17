@@ -47,7 +47,22 @@ export async function POST(request: NextRequest) {
     try {
         switch (event.type) {
 
-            // ── Payment held → upgrade pending order to 'paid' ────
+            // ── ESCROW HOLD CONFIRMED → upgrade pending order to 'paid' ────
+            // This fires when a manual-capture PaymentIntent finishes
+            // authorization (status becomes 'requires_capture'). For our
+            // escrow flow, this — not 'succeeded' — is the real "payment
+            // confirmed" signal.
+            case 'payment_intent.amount_capturable_updated': {
+                const pi = event.data.object as Stripe.PaymentIntent
+                console.log('[Webhook] payment_intent.amount_capturable_updated', pi.id)
+                await confirmOrderPayment(pi.id)
+                break
+            }
+
+            // ── Kept as a safety net for the eventual real capture ────
+            // (e.g. legacy/non-escrow PaymentIntents, or just defensive
+            // coverage). confirmOrderPayment() only acts if the order is
+            // still 'pending', so this is a no-op in the normal escrow path.
             case 'payment_intent.succeeded': {
                 const pi = event.data.object as Stripe.PaymentIntent
                 console.log('[Webhook] payment_intent.succeeded', pi.id)
@@ -90,7 +105,6 @@ export async function POST(request: NextRequest) {
                 const pi = event.data.object as Stripe.PaymentIntent
                 console.log('[Webhook] payment_intent.canceled', pi.id)
 
-                // Only act if order is still in an active state (scenario B)
                 const { data: order } = await supabase
                     .from('orders')
                     .select('id, product_id, status')
@@ -99,7 +113,6 @@ export async function POST(request: NextRequest) {
                     .maybeSingle()
 
                 if (order) {
-                    // Stripe auto-cancelled — buyer gets money back automatically
                     const now = new Date().toISOString()
                     console.warn(
                         `[Webhook] Stripe auto-cancelled PI for order ${order.id}`,
@@ -111,7 +124,6 @@ export async function POST(request: NextRequest) {
                         .update({ status: 'refunded', refunded_at: now, updated_at: now })
                         .eq('id', order.id)
 
-                    // Restore the listing so it can be sold again
                     await supabase
                         .from('products')
                         .update({ status: 'active', updated_at: now })
