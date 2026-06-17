@@ -43,7 +43,7 @@ export default async function OrderDetailPage({ params }: Props) {
     if (!user) redirect('/login')
 
     // ── Fetch order ───────────────────────────────────────────────
-    const order = await getOrderById(id)
+    const order = await getOrderById(id, supabase)
     if (!order) notFound()
 
     // ── Security: only buyer or seller can view this order ────────

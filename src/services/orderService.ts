@@ -7,6 +7,7 @@
 // ============================================
 
 import { supabase } from '@/lib/supabaseClient'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Order, OrderStatus } from '@/types/order'
 
 // ── Map raw Supabase row → Order ──────────────────────────────────
@@ -87,8 +88,11 @@ const ORDER_SELECT = `
 // ─────────────────────────────────────────────────────────────────
 // GET SINGLE ORDER by ID
 // ─────────────────────────────────────────────────────────────────
-export async function getOrderById(orderId: string): Promise<Order | null> {
-    const { data, error } = await supabase
+export async function getOrderById(
+    orderId: string,
+    client: SupabaseClient = supabase
+): Promise<Order | null> {
+    const { data, error } = await client
         .from('orders')
         .select(ORDER_SELECT)
         .eq('id', orderId)
@@ -110,11 +114,12 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
 export async function getUserOrders(
     userId: string,
     role: 'buyer' | 'seller',
-    statusFilter?: OrderStatus
+    statusFilter?: OrderStatus,
+    client: SupabaseClient = supabase
 ): Promise<Order[]> {
     const column = role === 'buyer' ? 'buyer_id' : 'seller_id'
 
-    let query = supabase
+    let query = client
         .from('orders')
         .select(ORDER_SELECT)
         .eq(column, userId)
@@ -138,12 +143,14 @@ export async function getUserOrders(
 // GET ORDERS IN INSPECTION (for admin dashboard)
 // These are orders where buyer has 5 days to approve or dispute
 // ─────────────────────────────────────────────────────────────────
-export async function getOrdersInInspection(): Promise<Order[]> {
-    const { data, error } = await supabase
+export async function getOrdersInInspection(
+    client: SupabaseClient = supabase
+): Promise<Order[]> {
+    const { data, error } = await client
         .from('orders')
         .select(ORDER_SELECT)
         .eq('status', 'in_inspection')
-        .order('inspection_started_at', { ascending: true }) // oldest first → about to expire
+        .order('inspection_started_at', { ascending: true })
 
     if (error) {
         console.error('getOrdersInInspection:', error.message)
