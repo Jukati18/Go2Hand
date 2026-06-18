@@ -1,16 +1,24 @@
+// src/services/deviceWriteService.ts
 // ============================================
 // DEVICE WRITE SERVICE — write operations (CUD)
 // Read operations live in deviceService.ts
 //
-// These functions run on the SERVER (Server Actions,
-// API routes). They use the Supabase client with
-// the user's session for RLS enforcement.
+// These functions only ever run on the SERVER (Server Actions in
+// actions/device.ts, API routes, or Server Components). They must
+// use the SSR server Supabase client so RLS policies that check
+// auth.uid() (e.g. "seller can only update their own listings")
+// see the real authenticated user instead of an anonymous session.
+//
+// Previously this used the browser singleton client, which carries
+// no cookies on the server — auth.uid() resolved to null, and any
+// RLS policy keyed on auth.uid() would silently block reads/writes
+// even when the seller_id check in the query matched correctly.
 //
 // Note: Supabase table is still named `products` at
 // the DB level. Only the TypeScript layer uses "device".
 // ============================================
 
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabase/server'
 import type {
     CreateDeviceInput,
     UpdateDeviceInput,
@@ -25,6 +33,8 @@ export async function createDevice(
     sellerId: string,
     input: CreateDeviceInput
 ): Promise<{ id: string }> {
+    const supabase = await createClient()
+
     // Validate minimum required images
     if (!input.images || input.images.length === 0) {
         throw new Error('At least one image is required')
@@ -83,6 +93,8 @@ export async function updateDevice(
     sellerId: string,
     input: UpdateDeviceInput
 ): Promise<void> {
+    const supabase = await createClient()
+
     // Build only the fields that were provided (partial update).
     // We strip undefined values so we don't accidentally clear fields.
     const updates: Record<string, unknown> = {
@@ -122,6 +134,8 @@ export async function deleteDevice(
     deviceId: string,
     sellerId: string
 ): Promise<void> {
+    const supabase = await createClient()
+
     const { error } = await supabase
         .from('products')
         .update({
@@ -136,8 +150,14 @@ export async function deleteDevice(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK AS SOLD — called automatically when order is confirmed
+// NOTE: this runs from a webhook/cron context with no user session in
+// some flows; orderWriteService.ts's own markDeviceAsSold (which uses
+// the admin/service-role client) is what's actually wired into the
+// Stripe webhook. This copy is kept for any direct, in-request callers.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function markDeviceAsSold(deviceId: string): Promise<void> {
+    const supabase = await createClient()
+
     const { error } = await supabase
         .from('products')
         .update({
@@ -154,6 +174,8 @@ export async function markDeviceAsSold(deviceId: string): Promise<void> {
 // Used in the Seller Dashboard
 // ─────────────────────────────────────────────────────────────────────────────
 export async function getSellerDevices(sellerId: string) {
+    const supabase = await createClient()
+
     const { data, error } = await supabase
         .from('products')
         .select(`

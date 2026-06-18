@@ -2,14 +2,25 @@
 // ============================================
 // REVIEW WRITE SERVICE — create review
 //
-// After inserting the review we recalculate and
-// update the seller's aggregate rating on their
-// users row so the seller card always shows
-// up-to-date stats without an extra join.
+// IMPORTANT: this file is only ever invoked from server-side
+// code (Server Actions in actions/review.ts, and the POST
+// /api/reviews route handler). It must use the SSR server
+// Supabase client (cookie-aware) so RLS policies checking
+// auth.uid() can identify the caller correctly.
+//
+// Previously this used the browser singleton client, which has
+// no cookies when executed on the server — auth.uid() resolved
+// to null, RLS silently filtered out the order row, and the
+// buyer got "Order not found or access denied" even when the
+// order genuinely belonged to them.
+//
+// After inserting the review we recalculate and update the
+// seller's aggregate rating on their users row so the seller
+// card always shows up-to-date stats without an extra join.
 // ============================================
 
-import { supabase } from '@/lib/supabaseClient'
-import type { CreateReviewInput, Review } from '@/types/review'
+import { createClient } from '@/lib/supabase/server'
+import type { CreateReviewInput } from '@/types/review'
 
 // ─────────────────────────────────────────────────────────────────
 // CREATE REVIEW
@@ -25,6 +36,10 @@ export async function createReview(
     buyerId: string,
     input: CreateReviewInput
 ): Promise<{ id: string }> {
+    // Create a request-scoped, cookie-aware client so RLS sees the
+    // real authenticated user instead of an anonymous session.
+    const supabase = await createClient()
+
     // ── 1. Validate ratings are 1–5 ──────────────────────────────
     const ratings = [input.overallRating, input.sellerRating, input.accuracyRating]
     if (ratings.some(r => r < 1 || r > 5 || !Number.isInteger(r))) {
