@@ -4,19 +4,19 @@
 // ============================================
 // REVIEW FORM MODAL
 //
-// Two distinct rating dimensions:
-//  • Overall experience (headline)
-//  • Seller rating — communication, honesty, speed
-//  • Device accuracy — did it match the listing?
-//
-// Steps:
-//  1. Rate (stars for all three dimensions)
-//  2. Write (optional title + body)
-//  3. Submit → calls actionSubmitReview
-//
-// The parent controls isOpen/onClose.
-// onSuccess() is called after a successful submit
-// so the parent can update its local state.
+// FIX: handleSubmit previously only checked `ratingsComplete`,
+// not which step the form was on. That meant ANY form submit
+// event firing while still on step 'rate' (e.g. native button
+// type quirks, an Enter keypress, or React reusing the same DOM
+// button node when swapping branches without a `key`) would
+// submit immediately with empty title/body — skipping the write
+// step entirely. Fixed with three layered guards:
+//   1. handleSubmit now hard-checks step === 'write' first.
+//   2. The "Next" button explicitly calls preventDefault +
+//      stopPropagation before advancing the step.
+//   3. Each step's button group has a distinct `key`, so React
+//      never reconciles the 'rate' buttons into the 'write'
+//      buttons as if they were the same DOM node.
 // ============================================
 
 import { useState, FormEvent } from 'react'
@@ -24,13 +24,11 @@ import {
     XMarkIcon,
     ShieldCheckIcon,
     UserCircleIcon,
-    CheckCircleIcon,
 } from '@heroicons/react/24/outline'
 import { CheckCircleIcon as CheckSolid } from '@heroicons/react/24/solid'
 import StarPicker from './StarPicker'
 import { actionSubmitReview } from '@/actions/review'
 
-// ── Explainers for each sub-rating ────────────────────────────────
 const SELLER_LABELS: Record<number, string> = {
     1: 'Very poor',
     2: 'Unsatisfactory',
@@ -57,7 +55,6 @@ interface ReviewFormProps {
     isOpen: boolean
     onClose: () => void
     onSuccess: () => void
-    // Order context — passed as hidden fields
     orderId: string
     sellerId: string
     productId: string
@@ -78,28 +75,44 @@ export default function ReviewForm({
     const [overallRating,  setOverallRating]  = useState(0)
     const [sellerRating,   setSellerRating]   = useState(0)
     const [accuracyRating, setAccuracyRating] = useState(0)
-    const [title,  setTitle]  = useState('')
-    const [body,   setBody]   = useState('')
+    const [title,      setTitle]      = useState('')
+    const [body,       setBody]       = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [error,      setError]      = useState<string | null>(null)
     const [step,       setStep]       = useState<'rate' | 'write'>('rate')
 
-    // All three ratings must be set before allowing next step
     const ratingsComplete = overallRating > 0 && sellerRating > 0 && accuracyRating > 0
 
     function handleClose() {
         if (submitting) return
         onClose()
-        // Reset after animation exits
         setTimeout(() => {
             setOverallRating(0); setSellerRating(0); setAccuracyRating(0)
             setTitle(''); setBody(''); setError(null); setStep('rate')
         }, 300)
     }
 
+    // ── Advance to the write step ─────────────────────────────────
+    // type="button" already stops this from submitting the form, but
+    // preventDefault + stopPropagation add a categorical safety net
+    // against any browser or React reconciliation quirk.
+    function handleGoToWrite(e: React.MouseEvent) {
+        e.preventDefault()
+        e.stopPropagation()
+        if (!ratingsComplete) return
+        setStep('write')
+    }
+
     async function handleSubmit(e: FormEvent) {
         e.preventDefault()
+
+        // ── HARD GUARD ───────────────────────────────────────────
+        // Only proceed when the user has explicitly reached the
+        // write step by clicking Next. This is the root fix — any
+        // submit event firing early (still on 'rate') is a no-op.
+        if (step !== 'write') return
         if (!ratingsComplete || submitting) return
+
         setError(null)
         setSubmitting(true)
 
@@ -128,7 +141,6 @@ export default function ReviewForm({
     if (!isOpen) return null
 
     return (
-        // Backdrop
         <div
             className="fixed inset-0 z-50 flex items-end sm:items-center justify-center
                 bg-black/40 backdrop-blur-sm p-4
@@ -146,6 +158,7 @@ export default function ReviewForm({
                         <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{productTitle}</p>
                     </div>
                     <button
+                        type="button"
                         onClick={handleClose}
                         disabled={submitting}
                         className="w-8 h-8 flex items-center justify-center rounded-full
@@ -155,13 +168,21 @@ export default function ReviewForm({
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit}>
+                {/* onKeyDown guard: pressing Enter anywhere in the form while
+                    still on the 'rate' step must never trigger a submit. */}
+                <form
+                    onSubmit={handleSubmit}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && step !== 'write') {
+                            e.preventDefault()
+                        }
+                    }}
+                >
                     <div className="px-6 py-6 flex flex-col gap-6">
 
                         {/* ── STEP: RATE ── */}
                         {step === 'rate' && (
                             <>
-                                {/* Overall rating — largest, most prominent */}
                                 <div className="text-center">
                                     <p className="text-xs font-bold text-gray-400 uppercase
                                         tracking-widest mb-3">
@@ -180,15 +201,11 @@ export default function ReviewForm({
 
                                 <div className="h-px bg-gray-100" />
 
-                                {/* Sub-ratings row */}
                                 <div className="grid grid-cols-2 gap-4">
-                                    {/* Seller rating */}
                                     <div className="bg-gray-50 rounded-xl p-4">
                                         <div className="flex items-center gap-1.5 mb-3">
                                             <UserCircleIcon className="w-4 h-4 text-teal-600 shrink-0" />
-                                            <p className="text-xs font-bold text-gray-700">
-                                                Seller
-                                            </p>
+                                            <p className="text-xs font-bold text-gray-700">Seller</p>
                                         </div>
                                         <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
                                             Communication, honesty &amp; shipping speed
@@ -202,13 +219,10 @@ export default function ReviewForm({
                                         />
                                     </div>
 
-                                    {/* Accuracy rating */}
                                     <div className="bg-gray-50 rounded-xl p-4">
                                         <div className="flex items-center gap-1.5 mb-3">
                                             <ShieldCheckIcon className="w-4 h-4 text-teal-600 shrink-0" />
-                                            <p className="text-xs font-bold text-gray-700">
-                                                Device Accuracy
-                                            </p>
+                                            <p className="text-xs font-bold text-gray-700">Device Accuracy</p>
                                         </div>
                                         <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
                                             Did it match the listing? Battery, grade, IMEI
@@ -228,7 +242,7 @@ export default function ReviewForm({
                         {/* ── STEP: WRITE ── */}
                         {step === 'write' && (
                             <>
-                                {/* Summary of selected ratings */}
+                                {/* Rating summary */}
                                 <div className="flex items-center justify-around bg-teal-50
                                     border border-teal-100 rounded-xl px-4 py-3">
                                     {[
@@ -266,6 +280,9 @@ export default function ReviewForm({
                                         type="text"
                                         value={title}
                                         onChange={(e) => setTitle(e.target.value)}
+                                        // A single text input inside a <form> can trigger native
+                                        // implicit submission on Enter — block it explicitly.
+                                        onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
                                         placeholder="e.g. Great deal, battery was as listed"
                                         maxLength={100}
                                         className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5
@@ -311,8 +328,11 @@ export default function ReviewForm({
                         )}
                     </div>
 
-                    {/* ── Footer buttons ── */}
-                    <div className="flex items-center gap-3 px-6 pb-6">
+                    {/* key={step} forces React to fully unmount and remount this
+                        button group between steps instead of reconciling the old
+                        buttons in place — eliminates any chance of a click meant
+                        for type="button" Next landing on type="submit" Submit. */}
+                    <div className="flex items-center gap-3 px-6 pb-6" key={step}>
                         {step === 'rate' ? (
                             <>
                                 <button
@@ -327,7 +347,7 @@ export default function ReviewForm({
                                 <button
                                     type="button"
                                     disabled={!ratingsComplete}
-                                    onClick={() => setStep('write')}
+                                    onClick={handleGoToWrite}
                                     className="flex-1 h-11 bg-teal-800 hover:bg-teal-700 text-white
                                         font-semibold rounded-xl text-sm transition-all
                                         disabled:opacity-40 disabled:cursor-not-allowed
