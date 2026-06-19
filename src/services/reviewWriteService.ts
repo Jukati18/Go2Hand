@@ -60,19 +60,37 @@ export async function createReview(
     }
 
     // ── 3. Insert the review ──────────────────────────────────────
+    // `comment` is a NOT NULL column, distinct from the nullable `body`
+    // column the rest of the app (ReviewCard, ReviewList, reviewService.ts)
+    // reads from for display. Mirror the same text into both so the DB
+    // constraint is satisfied while existing read paths keep working
+    // unchanged. Falls back to a placeholder if the buyer left no
+    // written review (ratings-only submissions are allowed by the form).
+    const reviewText = input.body?.trim() || input.title?.trim() || 'No written review provided.'
+
     // The unique constraint on (order_id) prevents duplicate reviews.
     const { data, error } = await supabase
         .from('reviews')
         .insert({
             order_id:        input.orderId,
             buyer_id:        buyerId,
+            // The `reviews` table has a NOT NULL `reviewer_id` column in
+            // addition to `buyer_id` (same person, legacy/duplicate column
+            // name) — must be populated or the insert fails with a
+            // not-null constraint violation.
+            reviewer_id:     buyerId,
             seller_id:       input.sellerId,
+            // Same situation as reviewer_id above: `reviewed_user_id` is a
+            // NOT NULL duplicate of seller_id (the person being reviewed).
+            reviewed_user_id: input.sellerId,
             product_id:      input.productId,
             overall_rating:  input.overallRating,
             seller_rating:   input.sellerRating,
             accuracy_rating: input.accuracyRating,
             title:           input.title?.trim()  || null,
             body:            input.body?.trim()   || null,
+            // NOT NULL — see comment above on reviewText.
+            comment:         reviewText,
         })
         .select('id')
         .single()
