@@ -27,17 +27,17 @@ import { CheckCircleIcon as CheckSolid } from '@heroicons/react/24/solid'
 import { useSellForm } from '@/hooks/useSellForm'
 import { uploadProductImage } from '@/services/storageService'
 import { actionCreateDevice } from '@/actions/device'
-import StepCategory  from './StepCategory'
-import StepDetails   from './StepDetails'
+import StepCategory from './StepCategory'
+import StepDetails from './StepDetails'
 import StepCondition from './StepCondition'
-import StepPricing   from './StepPricing'
+import StepPricing from './StepPricing'
 
 // ── Step metadata for the progress bar ────────────────────────────
 const STEPS = [
-    { n: 1, label: 'Category',  sublabel: 'Type & brand'    },
-    { n: 2, label: 'Details',   sublabel: 'Model & specs'   },
-    { n: 3, label: 'Condition', sublabel: 'Photos & check'  },
-    { n: 4, label: 'Pricing',   sublabel: 'Set your price'  },
+    { n: 1, label: 'Category', sublabel: 'Type & brand' },
+    { n: 2, label: 'Details', sublabel: 'Model & specs' },
+    { n: 3, label: 'Condition', sublabel: 'Photos & check' },
+    { n: 4, label: 'Pricing', sublabel: 'Set your price' },
 ] as const
 
 export default function SellDeviceForm() {
@@ -49,10 +49,10 @@ export default function SellDeviceForm() {
         validate,
     } = useSellForm()
 
-    const [submitting,      setSubmitting]      = useState(false)
-    const [submitError,     setSubmitError]     = useState<string | null>(null)
-    const [uploadProgress,  setUploadProgress]  = useState(0)
-    const [uploadPhase,     setUploadPhase]     = useState<string>('')
+    const [submitting, setSubmitting] = useState(false)
+    const [submitError, setSubmitError] = useState<string | null>(null)
+    const [uploadProgress, setUploadProgress] = useState(0)
+    const [uploadPhase, setUploadPhase] = useState<string>('')
 
     // ── Final submit: validate → upload images → create listing ───
     async function handleSubmit() {
@@ -97,12 +97,20 @@ export default function SellDeviceForm() {
         setSubmitting(true)
 
         try {
+            // Fail fast if the session is already dead — avoids a misleading
+            // "5%" flash before the per-photo check inside uploadProductImage
+            // catches it anyway.
+            const { data: { session } } = await (await import('@/lib/supabaseClient')).supabase.auth.getSession()
+            if (!session) {
+                throw new Error('Your session has expired. Please log in again and retry publishing.')
+            }
+            
             // ── STEP 1: Upload photos ──────────────────────────────
             // Use a temp ID for the storage path — the product row will
             // be created after with the returned image URLs.
             const tempId = crypto.randomUUID()
-            const total  = data.photos.length
-            let   done   = 0
+            const total = data.photos.length
+            let done = 0
 
             setUploadPhase(`Uploading photos (0 / ${total})…`)
             setUploadProgress(5) // show some progress immediately
@@ -139,28 +147,28 @@ export default function SellDeviceForm() {
             }
 
             const fd = new FormData()
-            fd.set('title',             titleText)
-            fd.set('brand_id',          data.brand.id)
-            fd.set('category_id',       data.category.id)
+            fd.set('title', titleText)
+            fd.set('brand_id', data.brand.id)
+            fd.set('category_id', data.category.id)
             // Only set device_model_id if one was actually selected —
             // sending an empty string causes a UUID parse error in Postgres.
             if (data.model?.id) {
                 fd.set('device_model_id', data.model.id)
             }
-            fd.set('price',             String(Number(data.price)))
+            fd.set('price', String(Number(data.price)))
             // original_price: fall back to the asking price if not set
-            fd.set('original_price',    String(Number(data.originalPrice) || Number(data.price)))
-            fd.set('condition',         data.condition)
-            fd.set('color',             data.color || 'Unknown')
-            fd.set('storage_capacity',  data.storage || 'N/A')
-            fd.set('battery_health',    String(data.batteryHealth || 85))
-            fd.set('imei_status',       data.imeiStatus || 'clean')
-            fd.set('icloud_status',     data.icloudStatus || 'unlocked')
-            fd.set('carrier_status',    data.carrierStatus || 'unlocked')
-            fd.set('description',       data.description || '')
+            fd.set('original_price', String(Number(data.originalPrice) || Number(data.price)))
+            fd.set('condition', data.condition)
+            fd.set('color', data.color || 'Unknown')
+            fd.set('storage_capacity', data.storage || 'N/A')
+            fd.set('battery_health', String(data.batteryHealth || 85))
+            fd.set('imei_status', data.imeiStatus || 'clean')
+            fd.set('icloud_status', data.icloudStatus || 'unlocked')
+            fd.set('carrier_status', data.carrierStatus || 'unlocked')
+            fd.set('description', data.description || '')
             // Join image URLs — guaranteed non-empty because we validated above
-            fd.set('images',            imageUrls.join(','))
-            fd.set('specs',             JSON.stringify(data.specs || {}))
+            fd.set('images', imageUrls.join(','))
+            fd.set('specs', JSON.stringify(data.specs || {}))
 
             setUploadProgress(88)
 
@@ -201,7 +209,7 @@ export default function SellDeviceForm() {
             <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 mb-6">
                 <div className="flex items-center gap-0">
                     {STEPS.map((s, i) => {
-                        const isDone    = step > s.n
+                        const isDone = step > s.n
                         const isCurrent = step === s.n
 
                         return (
