@@ -4,6 +4,14 @@
 // Orchestrates all 4 sell steps.
 // Owns the progress stepper, back/next/submit buttons, and the
 // final image upload → createDevice call.
+//
+// FIX: Multiple issues resolved:
+//   1. validate() now called before upload to catch bad data early
+//   2. Pre-flight checks for required fields (brand, category, condition)
+//   3. Null-safe image URL joining
+//   4. Better error messages surfaced to user
+//   5. uploadProgress resets properly on error
+//   6. console.error added for debugging
 // ─────────────────────────────────────────────────────────────────
 
 import { useState } from 'react'
@@ -13,6 +21,7 @@ import {
     ArrowRightIcon,
     ArrowLeftIcon,
     RocketLaunchIcon,
+    ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import { CheckCircleIcon as CheckSolid } from '@heroicons/react/24/solid'
 import { useSellForm } from '@/hooks/useSellForm'
@@ -37,75 +46,150 @@ export default function SellDeviceForm() {
         step, data, errors, patch,
         goNext, goBack,
         addPhotos, removePhoto, reorderPhotos,
+        validate,
     } = useSellForm()
 
-    const [submitting,   setSubmitting]   = useState(false)
-    const [submitError,  setSubmitError]  = useState<string | null>(null)
-    const [uploadProgress, setUploadProgress] = useState(0)
+    const [submitting,      setSubmitting]      = useState(false)
+    const [submitError,     setSubmitError]     = useState<string | null>(null)
+    const [uploadProgress,  setUploadProgress]  = useState(0)
+    const [uploadPhase,     setUploadPhase]     = useState<string>('')
 
-    // ── Final submit: upload images → create listing ───────────────
+    // ── Final submit: validate → upload images → create listing ───
     async function handleSubmit() {
         setSubmitError(null)
+
+        // ── PRE-FLIGHT VALIDATION ──────────────────────────────────
+        // Run all 4 steps of validation before touching the server.
+        // This catches issues like missing brand/category that would
+        // cause a DB constraint error after wasting upload bandwidth.
+        const isValid = validate(4 as Parameters<typeof validate>[0])
+        if (!isValid) {
+            setSubmitError('Please fill in all required fields before publishing.')
+            return
+        }
+
+        // Extra sanity checks (in case validate() misses edge cases)
+        if (!data.category) {
+            setSubmitError('Please select a category.')
+            return
+        }
+        if (!data.brand) {
+            setSubmitError('Please select a brand.')
+            return
+        }
+        if (!data.condition) {
+            setSubmitError('Please select a condition grade.')
+            return
+        }
+        if (data.photos.length < 1) {
+            setSubmitError('Please upload at least one photo.')
+            return
+        }
+        if (!data.price || Number(data.price) <= 0) {
+            setSubmitError('Please set a valid selling price.')
+            return
+        }
+        if (!data.imeiStatus) {
+            setSubmitError('Please run the IMEI/Serial verification check.')
+            return
+        }
+
         setSubmitting(true)
 
         try {
-            // 1. We need a temp device ID for the storage path.
-            //    We'll use crypto.randomUUID() and pass it to actionCreateDevice
-            //    so images and the product row share the same ID prefix.
+            // ── STEP 1: Upload photos ──────────────────────────────
+            // Use a temp ID for the storage path — the product row will
+            // be created after with the returned image URLs.
             const tempId = crypto.randomUUID()
+            const total  = data.photos.length
+            let   done   = 0
 
-            // 2. Upload all photos in parallel and collect public URLs
-            const total = data.photos.length
-            let done = 0
+            setUploadPhase(`Uploading photos (0 / ${total})…`)
+            setUploadProgress(5) // show some progress immediately
 
-            const imageUrls = await Promise.all(
-                data.photos.map(async (photo, i) => {
+            const imageUrls: string[] = []
+
+            for (const [i, photo] of data.photos.entries()) {
+                try {
                     const url = await uploadProductImage(photo.file, tempId, i)
-                    done++
-                    setUploadProgress(Math.round((done / total) * 80)) // 80% = upload phase
-                    return url
-                })
+                    imageUrls.push(url)
+                } catch (uploadErr) {
+                    const msg = uploadErr instanceof Error ? uploadErr.message : 'Unknown upload error'
+                    console.error(`[SellDeviceForm] Photo ${i + 1} upload failed:`, msg)
+                    throw new Error(`Photo ${i + 1} failed to upload: ${msg}. Check your Supabase Storage bucket "device-images" exists and has public insert access.`)
+                }
+
+                done++
+                const pct = Math.round((done / total) * 75) + 5 // 5→80%
+                setUploadProgress(pct)
+                setUploadPhase(`Uploading photos (${done} / ${total})…`)
+            }
+
+            setUploadProgress(82)
+            setUploadPhase('Creating your listing…')
+
+            // ── STEP 2: Build FormData for the server action ───────
+            const titleText = (
+                data.customTitle.trim() ||
+                `${data.brand.name} ${data.model?.model_name ?? ''}`.trim()
             )
 
-            setUploadProgress(85)
+            if (!titleText) {
+                throw new Error('Listing title is empty — please enter a device name in Step 2.')
+            }
 
-            // 3. Build FormData for actionCreateDevice
             const fd = new FormData()
-            fd.set('title',             data.customTitle.trim() || `${data.brand?.name ?? ''} ${data.model?.model_name ?? ''}`.trim())
-            fd.set('brand_id',          data.brand!.id)
-            fd.set('category_id',       data.category!.id)
-            fd.set('device_model_id',   data.model?.id ?? '')
-            fd.set('price',             String(data.price))
-            fd.set('original_price',    String(data.originalPrice || data.price))
+            fd.set('title',             titleText)
+            fd.set('brand_id',          data.brand.id)
+            fd.set('category_id',       data.category.id)
+            // Only set device_model_id if one was actually selected —
+            // sending an empty string causes a UUID parse error in Postgres.
+            if (data.model?.id) {
+                fd.set('device_model_id', data.model.id)
+            }
+            fd.set('price',             String(Number(data.price)))
+            // original_price: fall back to the asking price if not set
+            fd.set('original_price',    String(Number(data.originalPrice) || Number(data.price)))
             fd.set('condition',         data.condition)
-            fd.set('color',             data.color)
-            fd.set('storage_capacity',  data.storage)
-            fd.set('battery_health',    String(data.batteryHealth))
+            fd.set('color',             data.color || 'Unknown')
+            fd.set('storage_capacity',  data.storage || 'N/A')
+            fd.set('battery_health',    String(data.batteryHealth || 85))
             fd.set('imei_status',       data.imeiStatus || 'clean')
             fd.set('icloud_status',     data.icloudStatus || 'unlocked')
             fd.set('carrier_status',    data.carrierStatus || 'unlocked')
-            fd.set('description',       data.description)
+            fd.set('description',       data.description || '')
+            // Join image URLs — guaranteed non-empty because we validated above
             fd.set('images',            imageUrls.join(','))
-            fd.set('specs',             JSON.stringify(data.specs))
+            fd.set('specs',             JSON.stringify(data.specs || {}))
 
-            setUploadProgress(90)
+            setUploadProgress(88)
 
-            // 4. Create the device listing in the DB
+            // ── STEP 3: Create the listing in the DB ───────────────
             const result = await actionCreateDevice(fd)
 
             if (!result.success) {
-                throw new Error(result.error ?? 'Failed to create listing')
+                console.error('[SellDeviceForm] actionCreateDevice failed:', result.error)
+                throw new Error(result.error ?? 'Failed to create listing. Please try again.')
+            }
+
+            if (!result.deviceId) {
+                throw new Error('Listing created but no device ID returned. Please check your dashboard.')
             }
 
             setUploadProgress(100)
+            setUploadPhase('Done! Redirecting…')
 
-            // 5. Redirect to the new listing or dashboard
+            // ── STEP 4: Navigate to the new listing ───────────────
+            // Small delay so the user sees the 100% state
+            await new Promise(r => setTimeout(r, 600))
             router.push(`/devices/${result.deviceId}`)
 
         } catch (err) {
-            setSubmitError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+            const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+            console.error('[SellDeviceForm] Submit failed:', err)
+            setSubmitError(message)
             setUploadProgress(0)
-        } finally {
+            setUploadPhase('')
             setSubmitting(false)
         }
     }
@@ -213,10 +297,19 @@ export default function SellDeviceForm() {
                     />
                 )}
 
-                {/* ── Submit error ── */}
+                {/* ── Submit error — prominent banner ── */}
                 {submitError && (
-                    <div className="mt-6 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                        <p className="text-sm text-red-700">{submitError}</p>
+                    <div className="mt-6 flex items-start gap-3 bg-red-50 border border-red-200
+                        rounded-xl px-4 py-4 animate-[fadeUp_.2s_ease_both]">
+                        <ExclamationTriangleIcon className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                        <div>
+                            <p className="text-sm font-bold text-red-800 mb-0.5">
+                                Could not publish listing
+                            </p>
+                            <p className="text-sm text-red-700 leading-relaxed">
+                                {submitError}
+                            </p>
+                        </div>
                     </div>
                 )}
 
@@ -225,12 +318,7 @@ export default function SellDeviceForm() {
                     <div className="mt-6">
                         <div className="flex items-center justify-between mb-1.5">
                             <p className="text-xs text-gray-500 font-medium">
-                                {uploadProgress < 85
-                                    ? `Uploading photos… ${uploadProgress}%`
-                                    : uploadProgress < 100
-                                        ? 'Creating listing…'
-                                        : 'Done! Redirecting…'
-                                }
+                                {uploadPhase || 'Working…'}
                             </p>
                             <p className="text-xs text-teal-600 font-bold">{uploadProgress}%</p>
                         </div>

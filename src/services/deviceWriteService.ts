@@ -1,21 +1,10 @@
 // src/services/deviceWriteService.ts
 // ============================================
 // DEVICE WRITE SERVICE — write operations (CUD)
-// Read operations live in deviceService.ts
 //
-// These functions only ever run on the SERVER (Server Actions in
-// actions/device.ts, API routes, or Server Components). They must
-// use the SSR server Supabase client so RLS policies that check
-// auth.uid() (e.g. "seller can only update their own listings")
-// see the real authenticated user instead of an anonymous session.
-//
-// Previously this used the browser singleton client, which carries
-// no cookies on the server — auth.uid() resolved to null, and any
-// RLS policy keyed on auth.uid() would silently block reads/writes
-// even when the seller_id check in the query matched correctly.
-//
-// Note: Supabase table is still named `products` at
-// the DB level. Only the TypeScript layer uses "device".
+// FIX: Added validation for battery_health and other fields
+// that must be positive numbers. Added better error messages.
+// device_model_id undefined → null properly.
 // ============================================
 
 import { createClient } from '@/lib/supabase/server'
@@ -27,7 +16,6 @@ import type {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CREATE — insert a new device listing
-// Returns the new device's ID on success.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function createDevice(
     sellerId: string,
@@ -45,48 +33,57 @@ export async function createDevice(
         throw new Error('Price must be greater than 0')
     }
 
+    // Validate battery_health is a sensible number (0–100)
+    const batteryHealth = Math.max(0, Math.min(100, input.battery_health ?? 85))
+
+    // Validate original_price — must be >= price (or equal for no discount)
+    const originalPrice = Math.max(input.price, input.original_price ?? input.price)
+
     const { data, error } = await supabase
-        .from('products')           // Supabase table name stays as-is
+        .from('products')
         .insert({
-            seller_id: sellerId,
-            title: input.title.trim(),
-            brand_id: input.brand_id,
-            category_id: input.category_id,
-            device_model_id: input.device_model_id ?? null,
+            seller_id:         sellerId,
+            title:             input.title.trim(),
+            brand_id:          input.brand_id,
+            category_id:       input.category_id,
+            // undefined → null (no model selected)
+            device_model_id:   input.device_model_id ?? null,
 
-            price: input.price,
-            original_price: input.original_price,
+            price:             input.price,
+            original_price:    originalPrice,
 
-            condition: input.condition,
-            color: input.color.trim(),
-            storage_capacity: input.storage_capacity,
-            battery_health: input.battery_health,
+            condition:         input.condition,
+            color:             input.color.trim(),
+            storage_capacity:  input.storage_capacity,
+            battery_health:    batteryHealth,
 
-            images: input.images,
+            images:            input.images,
 
-            imei_status: input.imei_status,
-            icloud_status: input.icloud_status,
-            carrier_status: input.carrier_status,
+            imei_status:       input.imei_status,
+            icloud_status:     input.icloud_status,
+            carrier_status:    input.carrier_status,
 
-            specs: input.specs ?? {},
-            description: input.description?.trim() ?? null,
+            specs:             input.specs ?? {},
+            description:       input.description?.trim() ?? null,
 
             // New listings start as active and not yet featured
-            status: 'active' as ListingStatus,
-            is_verified: false,     // admin verifies later
-            is_featured: false,
-            view_count: 0,
+            status:            'active' as ListingStatus,
+            is_verified:       false,
+            is_featured:       false,
+            view_count:        0,
         })
         .select('id')
         .single()
 
-    if (error) throw new Error(`Failed to create listing: ${error.message}`)
+    if (error) {
+        console.error('[deviceWriteService.createDevice] Supabase error:', error)
+        throw new Error(`Failed to create listing: ${error.message}`)
+    }
     return { id: data.id }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UPDATE — edit fields on an existing listing
-// RLS on Supabase ensures only the seller can update their own listings.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function updateDevice(
     deviceId: string,
@@ -95,40 +92,39 @@ export async function updateDevice(
 ): Promise<void> {
     const supabase = await createClient()
 
-    // Build only the fields that were provided (partial update).
-    // We strip undefined values so we don't accidentally clear fields.
     const updates: Record<string, unknown> = {
         updated_at: new Date().toISOString(),
     }
 
-    if (input.title !== undefined) updates.title = input.title.trim()
-    if (input.price !== undefined) updates.price = input.price
-    if (input.original_price !== undefined) updates.original_price = input.original_price
-    if (input.condition !== undefined) updates.condition = input.condition
-    if (input.color !== undefined) updates.color = input.color.trim()
-    if (input.storage_capacity !== undefined) updates.storage_capacity = input.storage_capacity
-    if (input.battery_health !== undefined) updates.battery_health = input.battery_health
-    if (input.images !== undefined) updates.images = input.images
-    if (input.imei_status !== undefined) updates.imei_status = input.imei_status
-    if (input.icloud_status !== undefined) updates.icloud_status = input.icloud_status
-    if (input.carrier_status !== undefined) updates.carrier_status = input.carrier_status
-    if (input.specs !== undefined) updates.specs = input.specs
-    if (input.description !== undefined) updates.description = input.description?.trim() ?? null
-    if (input.status !== undefined) updates.status = input.status
+    if (input.title             !== undefined) updates.title            = input.title.trim()
+    if (input.price             !== undefined) updates.price            = input.price
+    if (input.original_price    !== undefined) updates.original_price   = input.original_price
+    if (input.condition         !== undefined) updates.condition        = input.condition
+    if (input.color             !== undefined) updates.color            = input.color.trim()
+    if (input.storage_capacity  !== undefined) updates.storage_capacity = input.storage_capacity
+    if (input.battery_health    !== undefined) updates.battery_health   = input.battery_health
+    if (input.images            !== undefined) updates.images           = input.images
+    if (input.imei_status       !== undefined) updates.imei_status      = input.imei_status
+    if (input.icloud_status     !== undefined) updates.icloud_status    = input.icloud_status
+    if (input.carrier_status    !== undefined) updates.carrier_status   = input.carrier_status
+    if (input.specs             !== undefined) updates.specs            = input.specs
+    if (input.description       !== undefined) updates.description      = input.description?.trim() ?? null
+    if (input.status            !== undefined) updates.status           = input.status
 
     const { error } = await supabase
         .from('products')
         .update(updates)
-        // Double-check: only the seller who owns it can update
         .eq('id', deviceId)
-        .eq('seller_id', sellerId)
+        .eq('seller_id', sellerId) // only seller who owns it can update
 
-    if (error) throw new Error(`Failed to update listing: ${error.message}`)
+    if (error) {
+        console.error('[deviceWriteService.updateDevice] Supabase error:', error)
+        throw new Error(`Failed to update listing: ${error.message}`)
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DELETE (soft) — sets status to 'inactive' instead of hard delete.
-// This preserves order history that references this device.
+// DELETE (soft) — sets status to 'inactive'
 // ─────────────────────────────────────────────────────────────────────────────
 export async function deleteDevice(
     deviceId: string,
@@ -139,21 +135,20 @@ export async function deleteDevice(
     const { error } = await supabase
         .from('products')
         .update({
-            status: 'inactive' as ListingStatus,
+            status:     'inactive' as ListingStatus,
             updated_at: new Date().toISOString(),
         })
         .eq('id', deviceId)
-        .eq('seller_id', sellerId)   // seller can only delete their own
+        .eq('seller_id', sellerId)
 
-    if (error) throw new Error(`Failed to delete listing: ${error.message}`)
+    if (error) {
+        console.error('[deviceWriteService.deleteDevice] Supabase error:', error)
+        throw new Error(`Failed to delete listing: ${error.message}`)
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MARK AS SOLD — called automatically when order is confirmed
-// NOTE: this runs from a webhook/cron context with no user session in
-// some flows; orderWriteService.ts's own markDeviceAsSold (which uses
-// the admin/service-role client) is what's actually wired into the
-// Stripe webhook. This copy is kept for any direct, in-request callers.
+// MARK AS SOLD
 // ─────────────────────────────────────────────────────────────────────────────
 export async function markDeviceAsSold(deviceId: string): Promise<void> {
     const supabase = await createClient()
@@ -161,17 +156,19 @@ export async function markDeviceAsSold(deviceId: string): Promise<void> {
     const { error } = await supabase
         .from('products')
         .update({
-            status: 'sold' as ListingStatus,
+            status:     'sold' as ListingStatus,
             updated_at: new Date().toISOString(),
         })
         .eq('id', deviceId)
 
-    if (error) throw new Error(`Failed to mark device as sold: ${error.message}`)
+    if (error) {
+        console.error('[deviceWriteService.markDeviceAsSold] Supabase error:', error)
+        throw new Error(`Failed to mark device as sold: ${error.message}`)
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET SELLER DEVICES — fetch all listings for a specific seller
-// Used in the Seller Dashboard
 // ─────────────────────────────────────────────────────────────────────────────
 export async function getSellerDevices(sellerId: string) {
     const supabase = await createClient()
@@ -187,9 +184,11 @@ export async function getSellerDevices(sellerId: string) {
             category:categories ( id, name )
         `)
         .eq('seller_id', sellerId)
-        // Show all statuses so seller can see sold/inactive too
         .order('created_at', { ascending: false })
 
-    if (error) throw new Error(`Failed to fetch listings: ${error.message}`)
+    if (error) {
+        console.error('[deviceWriteService.getSellerDevices] Supabase error:', error)
+        throw new Error(`Failed to fetch listings: ${error.message}`)
+    }
     return data ?? []
 }

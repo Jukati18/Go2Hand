@@ -1,17 +1,18 @@
 'use server'
 
+// src/actions/device.ts
 // ============================================
 // DEVICE SERVER ACTIONS
 //
-// "use server" means Next.js runs these on the
-// server, even when called from a client component.
-// They handle: auth check → validate → call DB.
-//
-// How to use in a component:
-//   import { actionCreateDevice } from '@/actions/device'
-//   <form action={actionCreateDevice}>...</form>
-//   // OR imperatively:
-//   const result = await actionCreateDevice(formData)
+// FIX: Multiple issues resolved:
+//   1. formData.get('images') null-safety — was crashing with
+//      "Cannot read properties of null (reading 'split')" when
+//      the images key was missing or empty.
+//   2. device_model_id empty string → now skipped if blank,
+//      preventing Postgres UUID parse errors.
+//   3. original_price and battery_health fallback values.
+//   4. Better error messages returned to client.
+//   5. Title required validation added.
 // ============================================
 
 import { revalidatePath } from 'next/cache'
@@ -25,7 +26,6 @@ import type { CreateDeviceInput, UpdateDeviceInput } from '@/types/deviceInput'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER — get the currently logged-in user's ID
-// Returns null if not authenticated
 // ─────────────────────────────────────────────────────────────────────────────
 async function getCurrentUserId(): Promise<string | null> {
     const supabase = await createClient()
@@ -35,77 +35,112 @@ async function getCurrentUserId(): Promise<string | null> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ACTION: CREATE DEVICE
-//
-// Called from the "Sell a Device" form.
-// FormData keys map to CreateDeviceInput fields.
-//
-// Example form fields needed:
-//   <input name="title" />
-//   <input name="price" />
-//   <input name="brand_id" />
-//   etc.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function actionCreateDevice(
     formData: FormData
 ): Promise<{ success: boolean; error?: string; deviceId?: string }> {
-    // 1. Auth guard — must be logged in to list a device
+    // 1. Auth guard
     const userId = await getCurrentUserId()
     if (!userId) {
         return { success: false, error: 'You must be logged in to list a device' }
     }
 
     try {
-        // 2. Parse FormData into typed input
-        const input: CreateDeviceInput = {
-            title: formData.get('title') as string,
-            brand_id: formData.get('brand_id') as string,
-            category_id: formData.get('category_id') as string,
-            device_model_id: (formData.get('device_model_id') as string) || undefined,
+        // 2. Parse required string fields
+        const title       = (formData.get('title') as string | null)?.trim() ?? ''
+        const brandId     = (formData.get('brand_id') as string | null)?.trim() ?? ''
+        const categoryId  = (formData.get('category_id') as string | null)?.trim() ?? ''
+        const condition   = (formData.get('condition') as string | null)?.trim() ?? ''
+        const rawImages   = (formData.get('images') as string | null)?.trim() ?? ''
 
-            price: Number(formData.get('price')),
-            original_price: Number(formData.get('original_price')),
+        // ── Validate required fields before hitting the DB ────────
+        if (!title)      return { success: false, error: 'Listing title is required' }
+        if (!brandId)    return { success: false, error: 'Brand is required' }
+        if (!categoryId) return { success: false, error: 'Category is required' }
+        if (!condition)  return { success: false, error: 'Device condition is required' }
+        if (!rawImages)  return { success: false, error: 'At least one photo is required. Upload failed or no images were provided.' }
 
-            condition: formData.get('condition') as CreateDeviceInput['condition'],
-            color: formData.get('color') as string,
-            storage_capacity: formData.get('storage_capacity') as string,
-            battery_health: Number(formData.get('battery_health')),
+        // ── Parse image URLs — filter empties from split ──────────
+        const images = rawImages
+            .split(',')
+            .map(url => url.trim())
+            .filter(Boolean)
 
-            // Images are uploaded separately; this receives their public URLs.
-            // The sell form should upload images first and store URLs in hidden inputs.
-            images: (formData.get('images') as string)
-                .split(',')
-                .map(url => url.trim())
-                .filter(Boolean),
-
-            imei_status: formData.get('imei_status') as 'clean' | 'flagged',
-            icloud_status: formData.get('icloud_status') as 'unlocked' | 'locked',
-            carrier_status: formData.get('carrier_status') as 'unlocked' | 'locked',
-
-            // specs is sent as a JSON string from the form
-            specs: JSON.parse((formData.get('specs') as string) || '{}'),
-            description: (formData.get('description') as string) || undefined,
+        if (images.length === 0) {
+            return { success: false, error: 'No valid image URLs found. Please re-upload your photos.' }
         }
 
-        // 3. Run validation and insert
+        // ── Parse price fields ────────────────────────────────────
+        const price         = Number(formData.get('price') ?? 0)
+        const originalPrice = Number(formData.get('original_price') ?? price) || price
+
+        if (!price || price <= 0) {
+            return { success: false, error: 'A valid selling price is required' }
+        }
+
+        // ── device_model_id: only include if a real UUID was given ─
+        // An empty string causes a Postgres UUID parse error.
+        const rawModelId = (formData.get('device_model_id') as string | null)?.trim()
+        const deviceModelId = rawModelId && rawModelId.length > 0 ? rawModelId : undefined
+
+        // ── Parse optional fields with safe defaults ──────────────
+        const color           = (formData.get('color')           as string | null)?.trim() || 'Unknown'
+        const storageCapacity = (formData.get('storage_capacity') as string | null)?.trim() || 'N/A'
+        const batteryHealth   = Number(formData.get('battery_health') ?? 85) || 85
+        const imeiStatus      = ((formData.get('imei_status')    as string | null) || 'clean') as 'clean' | 'flagged'
+        const icloudStatus    = ((formData.get('icloud_status')  as string | null) || 'unlocked') as 'unlocked' | 'locked'
+        const carrierStatus   = ((formData.get('carrier_status') as string | null) || 'unlocked') as 'unlocked' | 'locked'
+        const description     = (formData.get('description')     as string | null)?.trim() || undefined
+
+        // ── Parse specs JSON safely ───────────────────────────────
+        let specs: Record<string, string> = {}
+        try {
+            const rawSpecs = formData.get('specs') as string | null
+            if (rawSpecs) specs = JSON.parse(rawSpecs)
+        } catch {
+            // Non-fatal: bad JSON specs just means no specs
+            console.warn('[actionCreateDevice] Failed to parse specs JSON — defaulting to {}')
+        }
+
+        // 3. Build typed input
+        const input: CreateDeviceInput = {
+            title,
+            brand_id:          brandId,
+            category_id:       categoryId,
+            device_model_id:   deviceModelId,
+            price,
+            original_price:    originalPrice,
+            condition:         condition as CreateDeviceInput['condition'],
+            color,
+            storage_capacity:  storageCapacity,
+            battery_health:    batteryHealth,
+            images,
+            imei_status:       imeiStatus,
+            icloud_status:     icloudStatus,
+            carrier_status:    carrierStatus,
+            specs,
+            description,
+        }
+
+        // 4. Insert into DB
         const { id } = await createDevice(userId, input)
 
-        // 4. Bust the Next.js cache for device listings and dashboard
+        // 5. Bust Next.js cache
         revalidatePath('/devices')
         revalidatePath('/dashboard')
+        revalidatePath('/dashboard/listings')
 
         return { success: true, deviceId: id }
 
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Something went wrong'
+        console.error('[actionCreateDevice] Error:', err)
         return { success: false, error: message }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ACTION: UPDATE DEVICE
-//
-// Called from the "Edit Listing" form in the seller dashboard.
-// Only changed fields need to be in FormData.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function actionUpdateDevice(
     deviceId: string,
@@ -117,36 +152,38 @@ export async function actionUpdateDevice(
     }
 
     try {
-        // Build partial update — only include fields present in the form
         const input: UpdateDeviceInput = {}
 
-        const title = formData.get('title') as string | null
-        const price = formData.get('price') as string | null
-        const originalPrice = formData.get('original_price') as string | null
-        const condition = formData.get('condition') as string | null
-        const color = formData.get('color') as string | null
-        const storage = formData.get('storage_capacity') as string | null
-        const battery = formData.get('battery_health') as string | null
-        const images = formData.get('images') as string | null
-        const description = formData.get('description') as string | null
-        const status = formData.get('status') as string | null
-        const specs = formData.get('specs') as string | null
+        const title       = formData.get('title')             as string | null
+        const price       = formData.get('price')             as string | null
+        const origPrice   = formData.get('original_price')    as string | null
+        const condition   = formData.get('condition')         as string | null
+        const color       = formData.get('color')             as string | null
+        const storage     = formData.get('storage_capacity')  as string | null
+        const battery     = formData.get('battery_health')    as string | null
+        const images      = formData.get('images')            as string | null
+        const description = formData.get('description')       as string | null
+        const status      = formData.get('status')            as string | null
+        const specs       = formData.get('specs')             as string | null
 
-        if (title) input.title = title
-        if (price) input.price = Number(price)
-        if (originalPrice) input.original_price = Number(originalPrice)
-        if (condition) input.condition = condition as UpdateDeviceInput['condition']
-        if (color) input.color = color
-        if (storage) input.storage_capacity = storage
-        if (battery) input.battery_health = Number(battery)
+        if (title)       input.title           = title
+        if (price)       input.price           = Number(price)
+        if (origPrice)   input.original_price  = Number(origPrice)
+        if (condition)   input.condition       = condition as UpdateDeviceInput['condition']
+        if (color)       input.color           = color
+        if (storage)     input.storage_capacity = storage
+        if (battery)     input.battery_health  = Number(battery)
         if (description !== null) input.description = description || undefined
-        if (status) input.status = status as UpdateDeviceInput['status']
-        if (specs) input.specs = JSON.parse(specs)
-        if (images) input.images = images.split(',').map(u => u.trim()).filter(Boolean)
+        if (status)      input.status          = status as UpdateDeviceInput['status']
+        if (specs) {
+            try { input.specs = JSON.parse(specs) } catch { /* skip */ }
+        }
+        if (images) {
+            input.images = images.split(',').map(u => u.trim()).filter(Boolean)
+        }
 
         await updateDevice(deviceId, userId, input)
 
-        // Bust the cache for this device's detail page + dashboard
         revalidatePath(`/devices/${deviceId}`)
         revalidatePath('/dashboard')
 
@@ -154,14 +191,13 @@ export async function actionUpdateDevice(
 
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Something went wrong'
+        console.error('[actionUpdateDevice] Error:', err)
         return { success: false, error: message }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ACTION: DELETE DEVICE
-//
-// Soft-deletes by setting status = 'inactive'.
+// ACTION: DELETE DEVICE (soft-delete → status = 'inactive')
 // ─────────────────────────────────────────────────────────────────────────────
 export async function actionDeleteDevice(
     deviceId: string
@@ -181,6 +217,7 @@ export async function actionDeleteDevice(
 
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Something went wrong'
+        console.error('[actionDeleteDevice] Error:', err)
         return { success: false, error: message }
     }
 }
