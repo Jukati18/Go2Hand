@@ -17,7 +17,7 @@ import Image from 'next/image'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import Breadcrumb from '@/components/layout/Breadcrumb'
-import DeviceCard from '@/components/devices/DeviceCard'
+import LazyDeviceCard from '@/components/devices/LazyDeviceCard'
 import {
     getCategoryBySlug,
     getBrandsInCategory,
@@ -168,10 +168,7 @@ export default async function CategoryPage({ params }: Props) {
                         {/* 2-col on mobile → 4-col on lg */}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                             {popularDevices.map((device, i) => (
-                                <div key={device.id} className="animate-[fadeUp_.4s_ease_both]"
-                                    style={{ animationDelay: `${i * 50}ms` }}>
-                                    <DeviceCard device={device} />
-                                </div>
+                                <LazyDeviceCard key={device.id} device={device} animationDelay={i * 50} />
                             ))}
                         </div>
                     </section>

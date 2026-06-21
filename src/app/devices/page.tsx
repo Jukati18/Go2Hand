@@ -6,7 +6,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { XMarkIcon, MagnifyingGlassIcon, FunnelIcon } from '@heroicons/react/24/outline'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
-import DeviceCard from '@/components/devices/DeviceCard'
+import LazyDeviceCard from '@/components/devices/LazyDeviceCard'
 import FilterSidebar, { type SidebarFilters } from '@/components/devices/FilterSidebar'
 import ModelFilterStrip from '@/components/devices/ModelFilterStrip'
 import { useFilterOptions } from '@/hooks/useFilterOptions'
@@ -357,10 +357,7 @@ function DevicesContent() {
                     {!loading && devices.length > 0 && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                             {devices.map((d, i) => (
-                                <div key={d.id} className="animate-[fadeUp_.35s_ease_both]"
-                                    style={{ animationDelay: `${i * 40}ms` }}>
-                                    <DeviceCard device={d} />
-                                </div>
+                                <LazyDeviceCard key={d.id} device={d} animationDelay={i * 40} />
                             ))}
                         </div>
                     )}

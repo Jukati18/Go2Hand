@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import DeviceCard from '@/components/devices/DeviceCard';
+import LazyDeviceCard from '@/components/devices/LazyDeviceCard';
 import { getFeaturedDevices } from '@/services/deviceService';
 import type { Device } from '@/types/device';
 
@@ -155,7 +155,9 @@ export default function HomePage() {
                     {/* Device grid — 2-col on mobile, 4-col on lg */}
                     {!loading && featuredDevices.length > 0 && (
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                            {featuredDevices.map(d => <DeviceCard key={d.id} device={d} />)}
+                            {featuredDevices.map((d, i) => (
+                                <LazyDeviceCard key={d.id} device={d} animationDelay={i * 40} />
+                            ))}
                         </div>
                     )}
 

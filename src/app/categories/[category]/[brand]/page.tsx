@@ -9,7 +9,7 @@ import Image from 'next/image'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import Breadcrumb from '@/components/layout/Breadcrumb'
-import DeviceCard from '@/components/devices/DeviceCard'
+import LazyDeviceCard from '@/components/devices/LazyDeviceCard'
 import SortSelect from '@/components/ui/SortSelect'
 import {
     getCategoryBySlug, getBrandBySlug, getModelsInBrandCategory,
@@ -183,10 +183,7 @@ export default async function BrandCategoryPage({ params, searchParams }: Props)
                 {devices.length > 0 ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                         {devices.map((device, i) => (
-                            <div key={device.id} className="animate-[fadeUp_.35s_ease_both]"
-                                style={{ animationDelay: `${i * 40}ms` }}>
-                                <DeviceCard device={device} />
-                            </div>
+                            <LazyDeviceCard key={device.id} device={device} animationDelay={i * 40} />
                         ))}
                     </div>
                 ) : (
