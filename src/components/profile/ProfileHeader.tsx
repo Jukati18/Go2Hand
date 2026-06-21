@@ -131,8 +131,8 @@ export default function ProfileHeader({
                                     alt={displayName}
                                     width={96}
                                     height={96}
+                                    sizes="96px"
                                     className="w-full h-full object-cover"
-                                    unoptimized
                                 />
                             ) : (
                                 <div className={`w-full h-full bg-gradient-to-br ${gradient}

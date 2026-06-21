@@ -203,8 +203,8 @@ export default function EditProfileModal({
                                             src={avatarPreview}
                                             alt="Avatar preview"
                                             fill
+                                            sizes="80px"
                                             className="object-cover"
-                                            unoptimized
                                         />
                                     ) : (
                                         <div className={`w-full h-full bg-gradient-to-br ${gradient}

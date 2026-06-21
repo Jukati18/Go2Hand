@@ -133,7 +133,7 @@ export default function ListingsManager({ listings }: ListingsManagerProps) {
             const result = await actionDeleteDevice(deviceId)
             setLoadingId(null)
             if (result.success) {
-                showToast('Listing deactivated — it's now hidden from buyers.')
+                showToast("Listing deactivated — it's now hidden from buyers.")
             } else {
                 showToast(result.error ?? 'Something went wrong.', false)
             }
@@ -346,8 +346,8 @@ function ListingCard({
                             src={imgSrc}
                             alt={listing.title ?? 'Device'}
                             width={80} height={80}
+                            sizes="80px"
                             className="w-full h-full object-contain p-1"
-                            unoptimized
                         />
                     ) : (
                         <span className="text-3xl select-none">📱</span>

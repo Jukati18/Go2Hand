@@ -406,8 +406,8 @@ export default function OrderConfirmationClient({
                                             alt={product.title}
                                             width={80}
                                             height={80}
+                                            sizes="80px"
                                             className="w-full h-full object-contain p-1"
-                                            unoptimized
                                         />
                                     ) : (
                                         <span className="text-3xl select-none">📱</span>

@@ -29,9 +29,9 @@ import ReviewList from '@/components/reviews/ReviewList';
 import AddToCartButton from '@/components/cart/AddToCartButton';
 
 const CHECK_DOT: Record<CheckStatus, string> = {
-    ok:   'bg-emerald-500',
+    ok: 'bg-emerald-500',
     warn: 'bg-amber-400',
-    bad:  'bg-red-500',
+    bad: 'bg-red-500',
 };
 
 function computeReviewStats(reviews: Device['reviews']): ReviewStats {
@@ -46,8 +46,8 @@ function computeReviewStats(reviews: Device['reviews']): ReviewStats {
     let sumOverall = 0, sumSeller = 0, sumAccuracy = 0;
 
     for (const r of reviews) {
-        sumOverall  += r.overallRating;
-        sumSeller   += r.sellerRating;
+        sumOverall += r.overallRating;
+        sumSeller += r.sellerRating;
         sumAccuracy += r.accuracyRating;
         const star = Math.min(5, Math.max(1, Math.round(r.overallRating))) as 1 | 2 | 3 | 4 | 5;
         dist[star]++;
@@ -63,13 +63,13 @@ interface DetailPageProps {
 }
 
 export default function DetailPage({ device, similarDevices, initialSaved = false }: DetailPageProps) {
-    const [activeThumb,   setActiveThumb]   = useState(0);
+    const [activeThumb, setActiveThumb] = useState(0);
     const [activeStorage, setActiveStorage] = useState(device.storage);
-    const [toast,         setToast]         = useState<string | null>(null);
+    const [toast, setToast] = useState<string | null>(null);
 
-    const currentPrice  = device.storagePrices[activeStorage] ?? device.price;
-    const discount      = Math.round((1 - currentPrice / device.originalPrice) * 100);
-    const reviewStats   = computeReviewStats(device.reviews);
+    const currentPrice = device.storagePrices[activeStorage] ?? device.price;
+    const discount = Math.round((1 - currentPrice / device.originalPrice) * 100);
+    const reviewStats = computeReviewStats(device.reviews);
 
     function showToast(msg: string) {
         setToast(msg);
@@ -86,7 +86,7 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                     {[
                         { label: 'Home', href: '/' },
                         { label: device.category || 'Devices', href: device.categorySlug ? `/categories/${device.categorySlug}` : '/devices' },
-                        { label: device.brand,    href: device.brandSlug && device.categorySlug ? `/categories/${device.categorySlug}/${device.brandSlug}` : '/devices' },
+                        { label: device.brand, href: device.brandSlug && device.categorySlug ? `/categories/${device.categorySlug}/${device.brandSlug}` : '/devices' },
                     ].map(({ label, href }) => (
                         <span key={label} className="flex items-center gap-1.5">
                             <Link href={href} className="hover:text-teal-700 transition-colors">{label}</Link>
@@ -113,7 +113,8 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                                             className={`w-[70px] h-[70px] rounded-xl bg-white border-2 overflow-hidden transition-all duration-150
                                                 ${activeThumb === i ? 'border-teal-600 shadow-md' : 'border-gray-200 hover:border-teal-400'}`}>
                                             <Image src={src} alt={`View ${i + 1}`} width={70} height={70}
-                                                className="w-full h-full object-contain p-1" unoptimized />
+                                                sizes="70px"
+                                                className="w-full h-full object-contain p-1" />
                                         </button>
                                     ))}
                                 </div>
@@ -125,8 +126,9 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                                     )}
                                     <Image src={device.images[activeThumb]} alt={device.fullName}
                                         width={500} height={500}
-                                        className="w-[75%] h-[75%] object-contain group-hover:scale-105 transition-transform duration-350"
-                                        unoptimized />
+                                        sizes="(max-width: 1024px) 100vw, 460px"
+                                        priority
+                                        className="w-[75%] h-[75%] object-contain group-hover:scale-105 transition-transform duration-350" />
                                     <button className="absolute bottom-4 right-4 w-9 h-9 bg-white/80 backdrop-blur-sm rounded-lg border border-gray-200 flex items-center justify-center hover:bg-white hover:shadow-sm transition-all">
                                         <MagnifyingGlassPlusIcon className="w-4 h-4 text-gray-500" />
                                     </button>
@@ -143,7 +145,7 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                                     )}
                                     <Image src={device.images[activeThumb]} alt={device.fullName}
                                         width={400} height={400}
-                                        className="w-[80%] h-[80%] object-contain" unoptimized />
+                                        className="w-[80%] h-[80%] object-contain" sizes="400px" />
                                 </div>
                                 {device.images.length > 1 && (
                                     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -152,7 +154,8 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                                                 className={`w-16 h-16 shrink-0 rounded-xl bg-white border-2 overflow-hidden transition-all
                                                     ${activeThumb === i ? 'border-teal-600' : 'border-gray-200'}`}>
                                                 <Image src={src} alt={`View ${i + 1}`} width={64} height={64}
-                                                    className="w-full h-full object-contain p-1" unoptimized />
+                                                    sizes="64px"
+                                                    className="w-full h-full object-contain p-1" />
                                             </button>
                                         ))}
                                     </div>
@@ -317,9 +320,9 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
 
                             <div className="mt-4 sm:mt-5 flex flex-col gap-2">
                                 {[
-                                    { icon: TruckIcon,       text: `Free shipping via ${device.shippingProvider}` },
+                                    { icon: TruckIcon, text: `Free shipping via ${device.shippingProvider}` },
                                     { icon: ShieldCheckIcon, text: '5-day inspection window' },
-                                    { icon: ArrowPathIcon,   text: '30-day hassle-free returns' },
+                                    { icon: ArrowPathIcon, text: '30-day hassle-free returns' },
                                 ].map(({ icon: Icon, text }) => (
                                     <div key={text} className="flex items-center gap-2.5 text-xs text-gray-500">
                                         <Icon className="w-4 h-4 text-teal-600 shrink-0" />{text}
@@ -348,8 +351,8 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                             </div>
                             <div className="grid grid-cols-3 gap-2 mb-4">
                                 {[
-                                    { val: device.seller.rating,       label: 'Rating'   },
-                                    { val: device.seller.totalSales,   label: 'Sales'    },
+                                    { val: device.seller.rating, label: 'Rating' },
+                                    { val: device.seller.totalSales, label: 'Sales' },
                                     { val: device.seller.responseTime, label: 'Response' },
                                 ].map(({ val, label }) => (
                                     <div key={label} className="text-center py-3 bg-gray-50 rounded-xl">

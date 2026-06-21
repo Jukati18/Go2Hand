@@ -141,7 +141,7 @@ export default async function OrderDetailPage({ params }: Props) {
                                     <div className="w-16 h-16 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
                                         {product.images[0] ? (
                                             <Image src={product.images[0]} alt={product.title}
-                                                width={64} height={64} className="w-full h-full object-contain p-1" unoptimized />
+                                                width={64} height={64} className="w-full h-full object-contain p-1" sizes="64px" />
                                         ) : (
                                             <span className="text-2xl">📱</span>
                                         )}

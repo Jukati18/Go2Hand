@@ -103,8 +103,8 @@ export default function ReviewPromptCard({
                                 alt={productTitle}
                                 width={56}
                                 height={56}
+                                sizes="56px"
                                 className="w-full h-full object-contain p-1"
-                                unoptimized
                             />
                         </div>
                     )}

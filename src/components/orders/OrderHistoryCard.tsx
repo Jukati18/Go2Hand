@@ -122,8 +122,8 @@ export default function OrderHistoryCard({ order, role, style }: OrderHistoryCar
                                 alt={product.title}
                                 width={64}
                                 height={64}
+                                sizes="64px"
                                 className="w-full h-full object-contain p-1"
-                                unoptimized
                             />
                         ) : (
                             <span className="text-2xl select-none">📱</span>

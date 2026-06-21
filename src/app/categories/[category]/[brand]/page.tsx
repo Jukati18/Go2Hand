@@ -85,7 +85,7 @@ export default async function BrandCategoryPage({ params, searchParams }: Props)
                         <div className="w-[60px] sm:w-[72px] h-[60px] sm:h-[72px] rounded-2xl shrink-0 border border-white/10 flex items-center justify-center overflow-hidden bg-white/10 backdrop-blur-sm">
                             {brand.logo_url ? (
                                 <Image src={brand.logo_url} alt={brand.name}
-                                    width={56} height={56} className="w-12 sm:w-14 h-12 sm:h-14 object-contain p-1" unoptimized />
+                                    width={56} height={56} sizes="56px" className="w-12 sm:w-14 h-12 sm:h-14 object-contain p-1" />
                             ) : (
                                 <span className="text-2xl sm:text-3xl font-black text-white">{brand.name[0]}</span>
                             )}

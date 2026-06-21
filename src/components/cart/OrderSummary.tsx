@@ -59,7 +59,7 @@ export default function OrderSummary({
                             {item.imageUrl ? (
                                 <Image src={item.imageUrl} alt={item.title}
                                     width={40} height={40}
-                                    className="w-full h-full object-contain p-0.5" unoptimized />
+                                    className="w-full h-full object-contain p-0.5" sizes="40px" />
                             ) : <span className="text-base">📱</span>}
                         </div>
                         <div className="flex-1 min-w-0">

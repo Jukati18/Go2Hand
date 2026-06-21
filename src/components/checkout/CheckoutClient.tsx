@@ -528,8 +528,8 @@ function OrderSummaryCard({ device, discount }: { device: Device; discount: numb
                         alt={device.fullName}
                         width={64}
                         height={64}
+                        sizes="64px"
                         className="w-full h-full object-contain p-1"
-                        unoptimized
                     />
                 </div>
                 <div className="min-w-0 flex-1">

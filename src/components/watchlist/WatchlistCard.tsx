@@ -37,16 +37,16 @@ interface WatchlistCardProps {
 
 // ── Helpers ────────────────────────────────────────────────────────
 const CONDITION_STYLE: Record<string, string> = {
-    like_new:  'bg-emerald-50 text-emerald-700',
+    like_new: 'bg-emerald-50 text-emerald-700',
     excellent: 'bg-emerald-50 text-emerald-700',
-    good:      'bg-cyan-50 text-cyan-800',
-    fair:      'bg-amber-50 text-amber-700',
+    good: 'bg-cyan-50 text-cyan-800',
+    fair: 'bg-amber-50 text-amber-700',
 };
 const CONDITION_LABEL: Record<string, string> = {
-    like_new:  'Like New',
+    like_new: 'Like New',
     excellent: 'Excellent',
-    good:      'Good',
-    fair:      'Fair',
+    good: 'Good',
+    fair: 'Fair',
 };
 
 function daysSince(iso: string): string {
@@ -115,9 +115,9 @@ export default function WatchlistCard({ entry, onRemove, style }: WatchlistCardP
                             alt={p.title ?? 'Device'}
                             width={200}
                             height={200}
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                             className="w-[65%] h-[65%] object-contain
                                 group-hover:scale-105 transition-transform duration-300"
-                            unoptimized
                         />
                     ) : (
                         <span className="text-5xl select-none">📱</span>

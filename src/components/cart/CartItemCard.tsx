@@ -83,9 +83,9 @@ export default function CartItemCard({
                             alt={item.title}
                             width={110}
                             height={110}
+                            sizes="110px"
                             className="w-[75%] h-[75%] object-contain
                                 group-hover:scale-105 transition-transform duration-300"
-                            unoptimized
                         />
                     ) : (
                         <span className="text-4xl select-none">📱</span>

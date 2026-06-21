@@ -419,8 +419,8 @@ export default async function SellerDashboardPage() {
                                                 src={imgSrc}
                                                 alt={listing.title}
                                                 width={56} height={56}
+                                                sizes="56px"
                                                 className="w-full h-full object-contain p-1"
-                                                unoptimized
                                             />
                                         ) : (
                                             <span className="text-2xl">📱</span>

@@ -125,7 +125,7 @@ export default async function CategoryPage({ params }: Props) {
                                     <div className="w-12 sm:w-16 h-12 sm:h-16 flex items-center justify-center">
                                         {brand.logo_url ? (
                                             <Image src={brand.logo_url} alt={brand.name}
-                                                width={64} height={64} className="w-full h-full object-contain" unoptimized />
+                                                width={64} height={64} sizes="64px" className="w-full h-full object-contain" />
                                         ) : (
                                             <div className="w-12 sm:w-16 h-12 sm:h-16 rounded-xl bg-teal-50 group-hover:bg-teal-100 transition-colors flex items-center justify-center text-xl sm:text-2xl font-black text-teal-700">
                                                 {brand.name[0]}

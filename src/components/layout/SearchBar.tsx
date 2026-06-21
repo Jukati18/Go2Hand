@@ -434,8 +434,8 @@ export default function SearchBar() {
                                                             alt={s.title}
                                                             width={36}
                                                             height={36}
+                                                            sizes="36px"
                                                             className="w-full h-full object-contain p-0.5"
-                                                            unoptimized
                                                         />
                                                     ) : (
                                                         <span className="text-base">📱</span>

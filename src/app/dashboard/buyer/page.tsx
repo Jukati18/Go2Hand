@@ -446,8 +446,8 @@ export default async function BuyerDashboardPage() {
                                                         alt={product.title ?? ''}
                                                         width={56}
                                                         height={56}
+                                                        sizes="56px"
                                                         className="w-full h-full object-contain p-1"
-                                                        unoptimized
                                                     />
                                                 ) : (
                                                     <span className="text-2xl">📱</span>
@@ -627,8 +627,8 @@ export default async function BuyerDashboardPage() {
                                                             alt={p.title ?? ''}
                                                             width={44}
                                                             height={44}
+                                                            sizes="44px"
                                                             className="w-full h-full object-contain p-0.5"
-                                                            unoptimized
                                                         />
                                                     ) : (
                                                         <span className="text-lg">📱</span>

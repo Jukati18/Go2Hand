@@ -133,8 +133,8 @@ export default function StepCategory({ data, errors, patch }: StepCategoryProps)
                                             alt={brand.name}
                                             width={40}
                                             height={40}
+                                            sizes="40px"
                                             className="w-8 h-8 object-contain"
-                                            unoptimized
                                         />
                                     ) : (
                                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center
