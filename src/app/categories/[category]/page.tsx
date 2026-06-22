@@ -5,51 +5,85 @@
 // Server Component — no loading state needed;
 // Next.js will suspend while data fetches.
 //
-// Layout:
-//   • Teal hero (breadcrumb + category name + count)
-//   • Brand grid cards (logo · name · listing count)
-//   • "Popular [Category]" device grid (DeviceCard ×8)
+// SEO additions (Week 10):
+//  • Rich title/description per category
+//  • OpenGraph tags with category-specific copy
+//  • JSON-LD BreadcrumbList schema
+//  • canonical URL
 // ============================================
 
-import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import Image from 'next/image'
-import Navbar from '@/components/layout/Navbar'
-import Footer from '@/components/layout/Footer'
-import Breadcrumb from '@/components/layout/Breadcrumb'
-import LazyDeviceCard from '@/components/devices/LazyDeviceCard'
+import type { Metadata } from 'next'
+import Script              from 'next/script'
+import { notFound }        from 'next/navigation'
+import Link                from 'next/link'
+import Image               from 'next/image'
+import Navbar              from '@/components/layout/Navbar'
+import Footer              from '@/components/layout/Footer'
+import Breadcrumb          from '@/components/layout/Breadcrumb'
+import LazyDeviceCard      from '@/components/devices/LazyDeviceCard'
 import {
     getCategoryBySlug,
     getBrandsInCategory,
     getCategoryDeviceCount,
 } from '@/services/categoryService'
 import { getDevices } from '@/services/deviceService'
+import {
+    buildTitle,
+    truncateDesc,
+    buildBreadcrumbJsonLd,
+    SITE_URL,
+} from '@/lib/seo'
 
-// ── Category icon map — extend as new categories are added ────────
-const CATEGORY_META: Record<string, { icon: string; description: string }> = {
+// ── Category icon + description map ───────────────────────────────
+const CATEGORY_META: Record<string, { icon: string; description: string; keywords: string[] }> = {
     smartphones: {
         icon: '📱',
         description: 'Verified pre-owned smartphones from top brands — IMEI checked, escrow protected.',
+        keywords: [
+            'buy second hand phone Vietnam', 'used iPhone Vietnam',
+            'used Samsung Vietnam', 'refurbished smartphone',
+            'second hand phone Ho Chi Minh', 'IMEI verified phone',
+        ],
     },
     laptops: {
         icon: '💻',
         description: 'Reliable second-hand laptops for work, school, and gaming — all condition-graded.',
+        keywords: [
+            'buy used laptop Vietnam', 'second hand MacBook Vietnam',
+            'refurbished laptop', 'used ThinkPad Vietnam', 'second hand laptop HCMC',
+        ],
     },
     tablets: {
         icon: '⬛',
         description: 'Inspected tablets for study, creativity, and entertainment.',
+        keywords: [
+            'buy used tablet Vietnam', 'second hand iPad Vietnam',
+            'used tablet Ho Chi Minh', 'refurbished tablet',
+        ],
     },
     watches: {
         icon: '⌚',
         description: 'Pre-owned smartwatches fully tested and ready to pair.',
+        keywords: [
+            'buy used smartwatch Vietnam', 'second hand Apple Watch',
+            'used Galaxy Watch Vietnam',
+        ],
     },
     audio: {
         icon: '🎧',
         description: 'Earbuds, headphones and speakers at a fraction of retail.',
+        keywords: [
+            'buy used earbuds Vietnam', 'second hand AirPods Vietnam',
+            'used headphones Vietnam',
+        ],
     },
     desktops: {
         icon: '🖥️',
         description: 'Certified desktop PCs for home and office.',
+        keywords: [
+            'buy used desktop Vietnam', 'second hand PC Vietnam',
+            'refurbished desktop computer',
+        ],
     },
 }
 
@@ -57,28 +91,100 @@ interface Props {
     params: Promise<{ category: string }>
 }
 
+// ─────────────────────────────────────────────────────────────────
+// generateMetadata
+// ─────────────────────────────────────────────────────────────────
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+    const { category: slug } = await params
+    const [category, deviceCount] = await Promise.all([
+        getCategoryBySlug(slug),
+        getCategoryDeviceCount(slug),
+    ])
+
+    if (!category) return { title: buildTitle(['Category Not Found']) }
+
+    const meta     = CATEGORY_META[slug]
+    const canonical = `${SITE_URL}/categories/${slug}`
+
+    const title = buildTitle([
+        `Buy Second-Hand ${category.name}`,
+        'Verified & Escrow Protected',
+    ])
+
+    const description = truncateDesc(
+        `Browse ${deviceCount}+ verified second-hand ${category.name.toLowerCase()} on Go2Hand. ` +
+        (meta?.description ?? '') +
+        ` Free shipping. 30-day returns.`
+    )
+
+    return {
+        title,
+        description,
+        keywords: meta?.keywords?.join(', '),
+        robots: { index: true, follow: true },
+        alternates: { canonical },
+        openGraph: {
+            type:        'website',
+            url:         canonical,
+            siteName:    'Go2Hand',
+            title:       `${category.name} — Go2Hand`,
+            description,
+            locale:      'en_VN',
+            images: [{
+                url:    `${SITE_URL}/og-default.png`,
+                width:  1200,
+                height: 630,
+                alt:    `Second-hand ${category.name} on Go2Hand`,
+            }],
+        },
+        twitter: {
+            card:        'summary_large_image',
+            title:       `${category.name} — Go2Hand`,
+            description,
+        },
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// PAGE
+// ─────────────────────────────────────────────────────────────────
 export default async function CategoryPage({ params }: Props) {
     const { category: categorySlug } = await params
- 
+
     const [category, brands, deviceCount, { devices: popularDevices }] = await Promise.all([
         getCategoryBySlug(categorySlug),
         getBrandsInCategory(categorySlug),
         getCategoryDeviceCount(categorySlug),
         getDevices({ category: categorySlug, sortBy: 'popular', limit: 8 }),
     ])
- 
+
     if (!category) notFound()
+
     const meta = CATEGORY_META[categorySlug] ?? { icon: '📦', description: '' }
- 
+
+    // Breadcrumb JSON-LD
+    const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+        { name: 'Go2Hand',       href: '/' },
+        { name: category.name,   href: `/categories/${categorySlug}` },
+    ])
+
     return (
         <div className="min-h-screen bg-gray-50">
+            {/* Breadcrumb JSON-LD */}
+            <Script
+                id="jsonld-breadcrumb"
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd }}
+                strategy="beforeInteractive"
+            />
+
             <Navbar />
- 
+
             {/* ==================== HERO ==================== */}
             <section className="bg-gradient-to-br from-teal-900 via-teal-800 to-teal-700 pt-8 sm:pt-9 pb-12 sm:pb-14 px-4 sm:px-6">
                 <div className="max-w-[1160px] mx-auto">
                     <Breadcrumb items={[{ label: category.name }]} dark />
- 
+
                     <div className="mt-5 sm:mt-6 flex items-start sm:items-center gap-4 sm:gap-5">
                         <div className="w-[60px] sm:w-[72px] h-[60px] sm:h-[72px] bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shrink-0 border border-white/10">
                             {meta.icon}
@@ -99,23 +205,22 @@ export default async function CategoryPage({ params }: Props) {
                     </p>
                 </div>
             </section>
- 
+
             <div className="max-w-[1160px] mx-auto px-4 sm:px-6">
- 
+
                 {/* ==================== BRAND GRID ==================== */}
                 <section className="py-8 sm:py-10">
                     <div className="flex items-center justify-between mb-5 sm:mb-6">
                         <h2 className="text-lg sm:text-xl font-bold text-gray-900">Browse by Brand</h2>
                         <span className="text-sm text-gray-400">{brands.length} brand{brands.length !== 1 ? 's' : ''}</span>
                     </div>
- 
+
                     {brands.length === 0 ? (
                         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400">
                             <p className="text-lg">No brands available yet.</p>
                             <p className="text-sm mt-1">Add listings in Supabase to populate this page.</p>
                         </div>
                     ) : (
-                        /* 2-col on mobile → 3-col on sm → 4-col on lg */
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                             {brands.map(brand => (
                                 <Link key={brand.id} href={`/categories/${categorySlug}/${brand.slug}`}
@@ -148,7 +253,7 @@ export default async function CategoryPage({ params }: Props) {
                         </div>
                     )}
                 </section>
- 
+
                 {/* ==================== POPULAR DEVICES ==================== */}
                 {popularDevices.length > 0 && (
                     <section className="pb-12 sm:pb-16">
@@ -165,7 +270,6 @@ export default async function CategoryPage({ params }: Props) {
                                 </svg>
                             </Link>
                         </div>
-                        {/* 2-col on mobile → 4-col on lg */}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                             {popularDevices.map((device, i) => (
                                 <LazyDeviceCard key={device.id} device={device} animationDelay={i * 50} />
@@ -174,20 +278,8 @@ export default async function CategoryPage({ params }: Props) {
                     </section>
                 )}
             </div>
- 
+
             <Footer />
         </div>
     )
-}
-
-// ── SEO metadata ──────────────────────────────────────────────────
-export async function generateMetadata({ params }: Props) {
-    const { category: slug } = await params
-    const category = await getCategoryBySlug(slug)
-    if (!category) return {}
-    const meta = CATEGORY_META[slug]
-    return {
-        title: `${category.name} — Go2Hand`,
-        description: meta?.description ?? `Browse verified second-hand ${category.name.toLowerCase()} on Go2Hand. Escrow protected.`,
-    }
 }
