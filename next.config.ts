@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: '*.googleusercontent.com', // Thêm dòng này để phòng hờ các subdomain khác của Google
+        hostname: '*.googleusercontent.com',
         port: '',
         pathname: '/**',
       },
@@ -27,6 +27,11 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "upload.wikimedia.org",
         pathname: "/**",
       },
     ],
