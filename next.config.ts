@@ -6,7 +6,18 @@ const nextConfig: NextConfig = {
 
   images: {
     remotePatterns: [
-
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.googleusercontent.com', // Thêm dòng này để phòng hờ các subdomain khác của Google
+        port: '',
+        pathname: '/**',
+      },
       {
         protocol: "https",
         hostname: "*.supabase.co",
