@@ -17,6 +17,7 @@ import {
     ArrowRightIcon,
     ShieldCheckIcon,
     ExclamationTriangleIcon,
+    FlagIcon,
 } from '@heroicons/react/24/outline'
 
 async function getAdminStats() {
@@ -24,7 +25,7 @@ async function getAdminStats() {
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+        { cookies: { getAll: () => cookieStore.getAll(), setAll: () => { } } }
     )
 
     const [
@@ -34,6 +35,8 @@ async function getAdminStats() {
         completedOrdersRes,
         disputedOrdersRes,
         newUsersRes,
+        totalReportsRes,
+        pendingReportsRes,
     ] = await Promise.all([
         supabase.from('users').select('id', { count: 'exact', head: true }),
         supabase.from('products').select('id', { count: 'exact', head: true }).eq('status', 'active'),
@@ -43,6 +46,8 @@ async function getAdminStats() {
         // Users joined in last 7 days
         supabase.from('users').select('id', { count: 'exact', head: true })
             .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+        supabase.from('reports').select('id', { count: 'exact', head: true }),
+        supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     ])
 
     const totalRevenue = (completedOrdersRes.data ?? []).reduce(
@@ -50,13 +55,15 @@ async function getAdminStats() {
     )
 
     return {
-        totalUsers:      usersCountRes.count     ?? 0,
-        activeListings:  activeListingsRes.count  ?? 0,
-        totalOrders:     totalOrdersRes.count     ?? 0,
+        totalUsers: usersCountRes.count ?? 0,
+        activeListings: activeListingsRes.count ?? 0,
+        totalOrders: totalOrdersRes.count ?? 0,
         completedOrders: completedOrdersRes.data?.length ?? 0,
-        disputedOrders:  disputedOrdersRes.count  ?? 0,
+        disputedOrders: disputedOrdersRes.count ?? 0,
         totalRevenue,
-        newUsersThisWeek: newUsersRes.count       ?? 0,
+        newUsersThisWeek: newUsersRes.count ?? 0,
+        totalReports: totalReportsRes.count ?? 0,
+        pendingReports: pendingReportsRes.count ?? 0,
     }
 }
 
@@ -71,44 +78,53 @@ export default async function AdminOverviewPage() {
 
     const STAT_CARDS = [
         {
-            label:    'Total Users',
-            value:    stats.totalUsers.toLocaleString(),
-            sub:      `+${stats.newUsersThisWeek} this week`,
-            icon:     UsersIcon,
-            color:    'blue',
-            href:     '/admin/users',
+            label: 'Total Users',
+            value: stats.totalUsers.toLocaleString(),
+            sub: `+${stats.newUsersThisWeek} this week`,
+            icon: UsersIcon,
+            color: 'blue',
+            href: '/admin/users',
         },
         {
-            label:    'Active Listings',
-            value:    stats.activeListings.toLocaleString(),
-            sub:      'Visible to buyers',
-            icon:     DevicePhoneMobileIcon,
-            color:    'teal',
-            href:     '/admin/listings',
+            label: 'Active Listings',
+            value: stats.activeListings.toLocaleString(),
+            sub: 'Visible to buyers',
+            icon: DevicePhoneMobileIcon,
+            color: 'teal',
+            href: '/admin/listings',
         },
         {
-            label:    'Total Orders',
-            value:    stats.totalOrders.toLocaleString(),
-            sub:      `${stats.completedOrders} completed`,
-            icon:     ShoppingBagIcon,
-            color:    'emerald',
-            href:     '/admin/orders',
+            label: 'Total Orders',
+            value: stats.totalOrders.toLocaleString(),
+            sub: `${stats.completedOrders} completed`,
+            icon: ShoppingBagIcon,
+            color: 'emerald',
+            href: '/admin/orders',
         },
         {
-            label:    'Platform Revenue',
-            value:    fmtUSD(stats.totalRevenue),
-            sub:      '5% fee on completed sales',
-            icon:     CurrencyDollarIcon,
-            color:    'amber',
-            href:     '/admin/orders',
+            label: 'Platform Revenue',
+            value: fmtUSD(stats.totalRevenue),
+            sub: '5% fee on completed sales',
+            icon: CurrencyDollarIcon,
+            color: 'amber',
+            href: '/admin/orders',
+        },
+        {
+            label: 'Content Reports',
+            value: stats.totalReports.toLocaleString(),
+            sub: `${stats.pendingReports} pending review`,
+            icon: FlagIcon,
+            color: 'orange',
+            href: '/admin/reports',
         },
     ]
 
     const COLOR_MAP: Record<string, { bg: string; icon: string; text: string }> = {
-        blue:    { bg: 'bg-blue-50',    icon: 'text-blue-600',    text: 'text-blue-900'    },
-        teal:    { bg: 'bg-teal-50',    icon: 'text-teal-600',    text: 'text-teal-900'    },
+        blue: { bg: 'bg-blue-50', icon: 'text-blue-600', text: 'text-blue-900' },
+        teal: { bg: 'bg-teal-50', icon: 'text-teal-600', text: 'text-teal-900' },
         emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-600', text: 'text-emerald-900' },
-        amber:   { bg: 'bg-amber-50',   icon: 'text-amber-600',   text: 'text-amber-900'   },
+        amber: { bg: 'bg-amber-50', icon: 'text-amber-600', text: 'text-amber-900' },
+        orange: { bg: 'bg-orange-100', icon: 'text-orange-600', text: 'text-orange-900' },
     }
 
     return (
@@ -205,6 +221,16 @@ export default async function AdminOverviewPage() {
                             href: '/admin/users?filter=pending_verification',
                             icon: ShieldCheckIcon,
                             badge: 'Pending review',
+                        },
+                        {
+                            label: 'Content Moderation',
+                            desc: 'Review user-submitted reports, ban bad actors',
+                            href: '/admin/reports',
+                            icon: FlagIcon,
+                            badge: stats.pendingReports > 0
+                                ? `${stats.pendingReports} pending`
+                                : 'Queue clear',
+                            urgent: stats.pendingReports > 0,
                         },
                     ].map(({ label, desc, href, icon: Icon, badge, urgent }) => (
                         <Link

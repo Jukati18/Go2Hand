@@ -25,6 +25,7 @@ const NAV_ITEMS = [
     { label: 'Listings',  href: '/admin/listings',  icon: DevicePhoneMobileIcon  },
     { label: 'Orders',    href: '/admin/orders',    icon: ShoppingBagIcon        },
     { label: 'Reviews',   href: '/admin/reviews',   icon: FlagIcon               },
+    { label: 'Reports',   href: '/admin/reports',   icon: FlagIcon               },
     { label: 'Analytics', href: '/admin/analytics', icon: ChartBarIcon           },
 ]
 
