@@ -326,7 +326,7 @@ interface KpiCardProps {
     label: string
     value: string
     delta: number          // percentage point change vs last week
-    icon: React.ComponentType<{ className?: string }>
+    icon: React.ComponentType<React.SVGProps<SVGSVGElement>>
     sparkData?: DailyStat[]
     accentColor?: string
     subtext?: string
