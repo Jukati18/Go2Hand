@@ -16,10 +16,10 @@ import {
 import { CheckCircleIcon as CheckSolid } from '@heroicons/react/24/solid'
 import {
     actionSubmitReport,
-    REPORT_REASON_LABELS,
     type ReportTargetType,
     type ReportReason,
 } from '@/actions/report'
+import { REPORT_REASON_LABELS } from '@/constants/report';
 
 interface ReportModalProps {
     targetType: ReportTargetType

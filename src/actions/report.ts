@@ -15,6 +15,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { REPORT_REASON_LABELS } from '@/constants/report';
 
 export type ReportTargetType = 'listing' | 'user'
 
@@ -36,18 +37,6 @@ export interface SubmitReportInput {
 }
 
 type ActionResult = { success: boolean; error?: string }
-
-// ── Human-readable labels used in the modal + admin table ─────────
-export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
-    spam: 'Spam or duplicate listing',
-    counterfeit: 'Counterfeit / fake product',
-    scam: 'Suspected scam',
-    stolen_device: 'Stolen device',
-    inappropriate: 'Inappropriate content',
-    offensive_content: 'Offensive or harmful content',
-    wrong_category: 'Wrong category / misleading info',
-    other: 'Other',
-}
 
 // ─────────────────────────────────────────────────────────────────
 // ACTION: SUBMIT REPORT
