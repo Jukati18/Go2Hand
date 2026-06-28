@@ -5,9 +5,6 @@
 // DEVICE DETAIL PAGE — Fully responsive
 // Mobile: buy card first → gallery → specs → reviews
 // Desktop: two-column (specs | buy card sticky)
-//
-// Change: "Buy Now" Link replaced with AddToCartButton.
-// Checkout happens from the /cart page instead.
 // ============================================
 
 import { useState } from 'react';
@@ -27,6 +24,7 @@ import Footer from '@/components/layout/Footer';
 import WatchlistButton from '@/components/watchlist/WatchlistButton';
 import ReviewList from '@/components/reviews/ReviewList';
 import AddToCartButton from '@/components/cart/AddToCartButton';
+import ReportModal from '@/components/moderation/ReportModal';
 
 const CHECK_DOT: Record<CheckStatus, string> = {
     ok: 'bg-emerald-500',
@@ -46,30 +44,36 @@ function computeReviewStats(reviews: Device['reviews']): ReviewStats {
     let sumOverall = 0, sumSeller = 0, sumAccuracy = 0;
 
     for (const r of reviews) {
-        sumOverall += r.overallRating;
-        sumSeller += r.sellerRating;
+        sumOverall  += r.overallRating;
+        sumSeller   += r.sellerRating;
         sumAccuracy += r.accuracyRating;
-        const star = Math.min(5, Math.max(1, Math.round(r.overallRating))) as 1 | 2 | 3 | 4 | 5;
+        const star = Math.min(5, Math.max(1, Math.round(r.overallRating))) as 1|2|3|4|5;
         dist[star]++;
     }
     const avg = (n: number) => Math.round((n / total) * 10) / 10;
-    return { totalReviews: total, averageOverall: avg(sumOverall), averageSeller: avg(sumSeller), averageAccuracy: avg(sumAccuracy), distribution: dist };
+    return {
+        totalReviews: total,
+        averageOverall:  avg(sumOverall),
+        averageSeller:   avg(sumSeller),
+        averageAccuracy: avg(sumAccuracy),
+        distribution:    dist,
+    };
 }
 
 interface DetailPageProps {
-    device: Device;
+    device:         Device;
     similarDevices: Device[];
-    initialSaved?: boolean;
+    initialSaved?:  boolean;
 }
 
 export default function DetailPage({ device, similarDevices, initialSaved = false }: DetailPageProps) {
-    const [activeThumb, setActiveThumb] = useState(0);
+    const [activeThumb,   setActiveThumb]   = useState(0);
     const [activeStorage, setActiveStorage] = useState(device.storage);
-    const [toast, setToast] = useState<string | null>(null);
+    const [toast,         setToast]         = useState<string | null>(null);
 
     const currentPrice = device.storagePrices[activeStorage] ?? device.price;
-    const discount = Math.round((1 - currentPrice / device.originalPrice) * 100);
-    const reviewStats = computeReviewStats(device.reviews);
+    const discount     = Math.round((1 - currentPrice / device.originalPrice) * 100);
+    const reviewStats  = computeReviewStats(device.reviews);
 
     function showToast(msg: string) {
         setToast(msg);
@@ -84,9 +88,9 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
             <div className="max-w-[1160px] mx-auto px-4 sm:px-6">
                 <nav className="flex items-center flex-wrap gap-1.5 pt-4 pb-0 text-[12px] text-gray-400">
                     {[
-                        { label: 'Home', href: '/' },
+                        { label: 'Home',           href: '/' },
                         { label: device.category || 'Devices', href: device.categorySlug ? `/categories/${device.categorySlug}` : '/devices' },
-                        { label: device.brand, href: device.brandSlug && device.categorySlug ? `/categories/${device.categorySlug}/${device.brandSlug}` : '/devices' },
+                        { label: device.brand,     href: device.brandSlug && device.categorySlug ? `/categories/${device.categorySlug}/${device.brandSlug}` : '/devices' },
                     ].map(({ label, href }) => (
                         <span key={label} className="flex items-center gap-1.5">
                             <Link href={href} className="hover:text-teal-700 transition-colors">{label}</Link>
@@ -105,13 +109,17 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
 
                         {/* ── IMAGE GALLERY ── */}
                         <div className="animate-[fadeUp_.5s_ease_both_.05s]">
+
                             {/* Desktop gallery */}
                             <div className="hidden sm:flex gap-4">
                                 <div className="flex flex-col gap-2.5">
                                     {device.images.map((src, i) => (
-                                        <button key={i} onClick={() => setActiveThumb(i)}
+                                        <button
+                                            key={i}
+                                            onClick={() => setActiveThumb(i)}
                                             className={`w-[70px] h-[70px] rounded-xl bg-white border-2 overflow-hidden transition-all duration-150
-                                                ${activeThumb === i ? 'border-teal-600 shadow-md' : 'border-gray-200 hover:border-teal-400'}`}>
+                                                ${activeThumb === i ? 'border-teal-600 shadow-md' : 'border-gray-200 hover:border-teal-400'}`}
+                                        >
                                             <Image src={src} alt={`View ${i + 1}`} width={70} height={70}
                                                 sizes="70px"
                                                 className="w-full h-full object-contain p-1" />
@@ -124,11 +132,14 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                                             <CheckCircleSolid className="w-3.5 h-3.5" /> VERIFIED
                                         </span>
                                     )}
-                                    <Image src={device.images[activeThumb]} alt={device.fullName}
+                                    <Image
+                                        src={device.images[activeThumb]}
+                                        alt={device.fullName}
                                         width={500} height={500}
                                         sizes="(max-width: 1024px) 100vw, 460px"
                                         priority
-                                        className="w-[75%] h-[75%] object-contain group-hover:scale-105 transition-transform duration-350" />
+                                        className="w-[75%] h-[75%] object-contain group-hover:scale-105 transition-transform duration-350"
+                                    />
                                     <button className="absolute bottom-4 right-4 w-9 h-9 bg-white/80 backdrop-blur-sm rounded-lg border border-gray-200 flex items-center justify-center hover:bg-white hover:shadow-sm transition-all">
                                         <MagnifyingGlassPlusIcon className="w-4 h-4 text-gray-500" />
                                     </button>
@@ -150,9 +161,12 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                                 {device.images.length > 1 && (
                                     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
                                         {device.images.map((src, i) => (
-                                            <button key={i} onClick={() => setActiveThumb(i)}
+                                            <button
+                                                key={i}
+                                                onClick={() => setActiveThumb(i)}
                                                 className={`w-16 h-16 shrink-0 rounded-xl bg-white border-2 overflow-hidden transition-all
-                                                    ${activeThumb === i ? 'border-teal-600' : 'border-gray-200'}`}>
+                                                    ${activeThumb === i ? 'border-teal-600' : 'border-gray-200'}`}
+                                            >
                                                 <Image src={src} alt={`View ${i + 1}`} width={64} height={64}
                                                     sizes="64px"
                                                     className="w-full h-full object-contain p-1" />
@@ -279,17 +293,21 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                             <p className="text-xs font-semibold text-gray-600 mb-2">Storage</p>
                             <div className="flex flex-wrap gap-2 mb-4 sm:mb-5">
                                 {device.availableStorage.map(opt => (
-                                    <button key={opt} onClick={() => setActiveStorage(opt)}
+                                    <button
+                                        key={opt}
+                                        onClick={() => setActiveStorage(opt)}
                                         className={`px-3.5 py-2 rounded-lg border text-xs font-medium transition-all
                                             ${activeStorage === opt
                                                 ? 'bg-teal-800 border-teal-800 text-white font-semibold'
-                                                : 'bg-white border-gray-200 text-gray-600 hover:border-teal-400 hover:text-teal-700'}`}>
+                                                : 'bg-white border-gray-200 text-gray-600 hover:border-teal-400 hover:text-teal-700'
+                                            }`}
+                                    >
                                         {opt}
                                     </button>
                                 ))}
                             </div>
 
-                            {/* ── ADD TO CART (replaces old Buy Now link) ── */}
+                            {/* Add to Cart */}
                             <AddToCartButton
                                 deviceId={device.id}
                                 title={device.fullName}
@@ -298,31 +316,60 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                             />
 
                             {/* Make Offer */}
-                            <button onClick={() => showToast('Offer sent to seller!')}
-                                className="w-full h-12 mt-2.5 border-2 border-teal-800 text-teal-800 font-semibold rounded-xl flex items-center justify-center gap-2 text-sm hover:bg-cyan-50 transition-colors">
+                            <button
+                                onClick={() => showToast('Offer sent to seller!')}
+                                className="w-full h-12 mt-2.5 border-2 border-teal-800 text-teal-800 font-semibold rounded-xl flex items-center justify-center gap-2 text-sm hover:bg-cyan-50 transition-colors"
+                            >
                                 <ChatBubbleLeftIcon className="w-4 h-4" />
                                 Make an Offer
                             </button>
 
-                            {/* Secondary actions */}
+                            {/* Secondary actions row: Watchlist · Share · Report */}
                             <div className="grid grid-cols-3 gap-2 mt-3">
-                                <WatchlistButton deviceId={device.id} initialSaved={initialSaved}
-                                    variant="pill" showToast={showToast} className="col-span-1" />
-                                <button onClick={() => showToast('Link copied!')}
-                                    className="h-10 bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-lg text-xs font-semibold text-gray-500 flex items-center justify-center gap-1.5 transition-colors">
+
+                                {/* Watchlist heart toggle */}
+                                <WatchlistButton
+                                    deviceId={device.id}
+                                    initialSaved={initialSaved}
+                                    variant="pill"
+                                    showToast={showToast}
+                                    className="col-span-1"
+                                />
+
+                                {/* Share — copies link to clipboard */}
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard?.writeText(window.location.href)
+                                            .catch(() => {});
+                                        showToast('Link copied!');
+                                    }}
+                                    className="h-10 bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-lg text-xs font-semibold text-gray-500 flex items-center justify-center gap-1.5 transition-colors"
+                                >
                                     <ShareIcon className="w-3.5 h-3.5" /> Share
                                 </button>
-                                <button onClick={() => showToast('Report submitted. Thank you.')}
-                                    className="h-10 bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-lg text-xs font-semibold text-gray-500 flex items-center justify-center gap-1.5 transition-colors">
-                                    <FlagIcon className="w-3.5 h-3.5" /> Report
-                                </button>
+
+                                {/* ── Report — REAL: opens ReportModal ── */}
+                                {/* Previously this was a fake showToast() call.
+                                    Now it renders ReportModal which submits to the
+                                    `reports` table via actionSubmitReport() and
+                                    makes the report appear in /admin/reports.      */}
+                                <ReportModal
+                                    targetType="listing"
+                                    targetId={device.id}
+                                    targetTitle={device.fullName}
+                                >
+                                    <button className="h-10 w-full bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-lg text-xs font-semibold text-gray-500 flex items-center justify-center gap-1.5 transition-colors">
+                                        <FlagIcon className="w-3.5 h-3.5" /> Report
+                                    </button>
+                                </ReportModal>
                             </div>
 
+                            {/* Trust badges */}
                             <div className="mt-4 sm:mt-5 flex flex-col gap-2">
                                 {[
-                                    { icon: TruckIcon, text: `Free shipping via ${device.shippingProvider}` },
+                                    { icon: TruckIcon,      text: `Free shipping via ${device.shippingProvider}` },
                                     { icon: ShieldCheckIcon, text: '5-day inspection window' },
-                                    { icon: ArrowPathIcon, text: '30-day hassle-free returns' },
+                                    { icon: ArrowPathIcon,  text: '30-day hassle-free returns' },
                                 ].map(({ icon: Icon, text }) => (
                                     <div key={text} className="flex items-center gap-2.5 text-xs text-gray-500">
                                         <Icon className="w-4 h-4 text-teal-600 shrink-0" />{text}
@@ -351,8 +398,8 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                             </div>
                             <div className="grid grid-cols-3 gap-2 mb-4">
                                 {[
-                                    { val: device.seller.rating, label: 'Rating' },
-                                    { val: device.seller.totalSales, label: 'Sales' },
+                                    { val: device.seller.rating,       label: 'Rating'   },
+                                    { val: device.seller.totalSales,   label: 'Sales'    },
                                     { val: device.seller.responseTime, label: 'Response' },
                                 ].map(({ val, label }) => (
                                     <div key={label} className="text-center py-3 bg-gray-50 rounded-xl">
@@ -361,8 +408,10 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                                     </div>
                                 ))}
                             </div>
-                            <button onClick={() => showToast('Message sent to seller!')}
-                                className="w-full h-11 border-2 border-gray-200 hover:border-teal-400 text-gray-600 hover:text-teal-700 font-semibold rounded-xl flex items-center justify-center gap-2 text-sm transition-colors">
+                            <button
+                                onClick={() => showToast('Message sent to seller!')}
+                                className="w-full h-11 border-2 border-gray-200 hover:border-teal-400 text-gray-600 hover:text-teal-700 font-semibold rounded-xl flex items-center justify-center gap-2 text-sm transition-colors"
+                            >
                                 <ChatBubbleLeftIcon className="w-4 h-4" /> Message Seller
                             </button>
                         </div>
@@ -400,7 +449,9 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                             Similar Devices You May Like
                         </h2>
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                            {similarDevices.map(d => <DeviceCard key={d.id} device={d} />)}
+                            {similarDevices.map(d => (
+                                <DeviceCard key={d.id} device={d} />
+                            ))}
                         </div>
                     </div>
                 )}
@@ -408,7 +459,7 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
 
             <Footer />
 
-            {/* Toast */}
+            {/* ── Toast notification ── */}
             {toast && (
                 <div className="fixed bottom-4 sm:bottom-7 right-4 sm:right-7 z-50 bg-gray-900 text-white px-5 py-3.5 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-medium animate-[fadeUp_.3s_ease_both]">
                     <CheckCircleSolid className="w-5 h-5 text-emerald-400" />
