@@ -3,8 +3,12 @@
 // REVIEW SERVICE — Read operations
 // Write operations live in reviewWriteService.ts
 //
-// Supabase table: reviews
-// Joins: buyer (users), product (products), seller (users)
+// FIX: The reviews table references users via `reviewer_id` (not
+// `buyer_id`). Using `users!buyer_id` caused Supabase to throw:
+//   "Could not find a relationship between 'reviews' and 'users'"
+// because `buyer_id` has no FK constraint to the users table.
+//
+// The correct join hint is `users!reviewer_id(...)`.
 // ============================================
 
 import { supabase } from '@/lib/supabaseClient'
@@ -26,11 +30,13 @@ function toInitials(name: string): string {
 }
 
 // ── Standard select for review rows ──────────────────────────────
+// Uses `reviewer_id` as the FK hint — this is the actual column
+// in the reviews table that has a foreign key to users.
 const REVIEW_SELECT = `
-    id, order_id, buyer_id, seller_id, product_id,
+    id, order_id, reviewer_id, buyer_id, seller_id, product_id,
     overall_rating, seller_rating, accuracy_rating,
     title, body, created_at,
-    buyer:users!buyer_id ( id, username, full_name, avatar_url )
+    buyer:users!reviewer_id ( id, username, full_name, avatar_url )
 `
 
 // ── Map raw Supabase row → Review ─────────────────────────────────
@@ -41,7 +47,8 @@ function mapReview(row: any): Review {
     return {
         id: row.id,
         orderId: row.order_id,
-        buyerId: row.buyer_id,
+        // reviewer_id is the FK to users; buyer_id is a denormalized alias
+        buyerId: row.reviewer_id ?? row.buyer_id,
         sellerId: row.seller_id,
         productId: row.product_id,
         overallRating: row.overall_rating,
