@@ -46,7 +46,7 @@ import {
     actionAdminResolveReport,
     type ReportDecision,
 } from '@/actions/adminReports'
-import { REPORT_REASON_LABELS } from '@/actions/report'
+import { REPORT_REASON_LABELS } from '@/constants/report'
 
 // ─────────────────────────────────────────────────────────────────
 // CONSTANTS
