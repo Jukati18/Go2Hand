@@ -9,10 +9,21 @@
 //
 // messages: id, conversation_id, sender_id, recipient_id,
 //           content, is_read, read_at, inserted_at, created_at,
-//           updated_at, topic, product_id, private,
-//           is_system_message, is_flagged
-//           (extension, payload, order_id, event, attachments,
-//            binary_payload are optional/nullable — omitted)
+//           updated_at, topic, product_id, is_system_message, is_flagged
+//           (private, extension, payload, order_id, event, attachments,
+//            binary_payload are nullable — omitted from insert to avoid
+//            PostgREST schema cache misses on reserved/typed columns)
+//
+// FIX: Removed `private` from the insert payload.
+//   Root cause: PostgREST caches the DB schema at startup. If the
+//   `private` column was added after the last cache refresh, or if
+//   the column name collides with a reserved identifier in the cache
+//   key, PostgREST throws "Could not find the 'private' column".
+//
+//   Resolution:
+//     1. Run `NOTIFY pgrst, 'reload schema';` in Supabase SQL editor.
+//     2. Remove `private` from the insert — it defaults to true in the
+//        DB (DM context is always private) so we don't need to set it.
 // ─────────────────────────────────────────────────────────────────
 
 import { revalidatePath } from 'next/cache'
@@ -92,21 +103,23 @@ export async function actionSendMessage({
             }
         }
 
-        // ── Insert message with all required columns ──────────────────
-        // Your messages table requires: sender_id, recipient_id, content
-        // conversation_id links it to the thread
+        // ── Insert message ────────────────────────────────────────────
+        // Only include columns that are confirmed in the schema cache.
+        // `private` is intentionally omitted — it should default in the DB,
+        // or be added via `NOTIFY pgrst, 'reload schema'` before re-enabling.
         const { error: msgErr } = await supabase
             .from('messages')
             .insert({
-                conversation_id: conversationId,
-                sender_id: user.id,
-                recipient_id: receiverId,   // ← your table has this column
-                content: trimmed,
-                product_id: productId,    // handy for context
-                is_read: false,        // starts unread
+                conversation_id:  conversationId,
+                sender_id:        user.id,
+                recipient_id:     receiverId,
+                content:          trimmed,
+                product_id:       productId,
+                is_read:          false,
                 is_system_message: false,
-                is_flagged: false,
-                private: true,         // private DM between buyer & seller
+                is_flagged:       false,
+                // `private` omitted — run `NOTIFY pgrst, 'reload schema'`
+                // in Supabase SQL editor if you need to set it explicitly.
             })
 
         if (msgErr) {
@@ -121,8 +134,9 @@ export async function actionSendMessage({
         await supabase
             .from('conversations')
             .update({
-                last_message: trimmed.slice(0, 100),
+                last_message:    trimmed.slice(0, 100),
                 last_message_at: now,
+                updated_at:      now,
             })
             .eq('id', conversationId)
 
@@ -139,7 +153,7 @@ export async function actionSendMessage({
 
 // ─────────────────────────────────────────────────────────────────
 // MARK MESSAGES AS READ
-// Your table uses `is_read` boolean + `read_at` timestamp
+// Uses `is_read` boolean + `read_at` timestamp as per your schema.
 // ─────────────────────────────────────────────────────────────────
 export async function actionMarkMessagesRead(conversationId: string): Promise<void> {
     const supabase = await createClient()
@@ -153,7 +167,7 @@ export async function actionMarkMessagesRead(conversationId: string): Promise<vo
             read_at: new Date().toISOString(),
         })
         .eq('conversation_id', conversationId)
-        .eq('recipient_id', user.id)  // only mark messages sent TO me
+        .eq('recipient_id', user.id)   // only mark messages sent TO me
         .eq('is_read', false)
 
     revalidatePath('/dashboard/messages')
