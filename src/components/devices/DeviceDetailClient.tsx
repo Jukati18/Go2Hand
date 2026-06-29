@@ -25,6 +25,7 @@ import WatchlistButton from '@/components/watchlist/WatchlistButton';
 import ReviewList from '@/components/reviews/ReviewList';
 import AddToCartButton from '@/components/cart/AddToCartButton';
 import ReportModal from '@/components/moderation/ReportModal';
+import MessageModal from '@/components/messages/MessageModal'
 
 const CHECK_DOT: Record<CheckStatus, string> = {
     ok: 'bg-emerald-500',
@@ -44,36 +45,37 @@ function computeReviewStats(reviews: Device['reviews']): ReviewStats {
     let sumOverall = 0, sumSeller = 0, sumAccuracy = 0;
 
     for (const r of reviews) {
-        sumOverall  += r.overallRating;
-        sumSeller   += r.sellerRating;
+        sumOverall += r.overallRating;
+        sumSeller += r.sellerRating;
         sumAccuracy += r.accuracyRating;
-        const star = Math.min(5, Math.max(1, Math.round(r.overallRating))) as 1|2|3|4|5;
+        const star = Math.min(5, Math.max(1, Math.round(r.overallRating))) as 1 | 2 | 3 | 4 | 5;
         dist[star]++;
     }
     const avg = (n: number) => Math.round((n / total) * 10) / 10;
     return {
         totalReviews: total,
-        averageOverall:  avg(sumOverall),
-        averageSeller:   avg(sumSeller),
+        averageOverall: avg(sumOverall),
+        averageSeller: avg(sumSeller),
         averageAccuracy: avg(sumAccuracy),
-        distribution:    dist,
+        distribution: dist,
     };
 }
 
 interface DetailPageProps {
-    device:         Device;
+    device: Device;
     similarDevices: Device[];
-    initialSaved?:  boolean;
+    initialSaved?: boolean;
 }
 
 export default function DetailPage({ device, similarDevices, initialSaved = false }: DetailPageProps) {
-    const [activeThumb,   setActiveThumb]   = useState(0);
+    const [activeThumb, setActiveThumb] = useState(0);
     const [activeStorage, setActiveStorage] = useState(device.storage);
-    const [toast,         setToast]         = useState<string | null>(null);
+    const [toast, setToast] = useState<string | null>(null);
 
     const currentPrice = device.storagePrices[activeStorage] ?? device.price;
-    const discount     = Math.round((1 - currentPrice / device.originalPrice) * 100);
-    const reviewStats  = computeReviewStats(device.reviews);
+    const discount = Math.round((1 - currentPrice / device.originalPrice) * 100);
+    const reviewStats = computeReviewStats(device.reviews);
+    const [messageModalOpen, setMessageModalOpen] = useState(false)
 
     function showToast(msg: string) {
         setToast(msg);
@@ -88,9 +90,9 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
             <div className="max-w-[1160px] mx-auto px-4 sm:px-6">
                 <nav className="flex items-center flex-wrap gap-1.5 pt-4 pb-0 text-[12px] text-gray-400">
                     {[
-                        { label: 'Home',           href: '/' },
+                        { label: 'Home', href: '/' },
                         { label: device.category || 'Devices', href: device.categorySlug ? `/categories/${device.categorySlug}` : '/devices' },
-                        { label: device.brand,     href: device.brandSlug && device.categorySlug ? `/categories/${device.categorySlug}/${device.brandSlug}` : '/devices' },
+                        { label: device.brand, href: device.brandSlug && device.categorySlug ? `/categories/${device.categorySlug}/${device.brandSlug}` : '/devices' },
                     ].map(({ label, href }) => (
                         <span key={label} className="flex items-center gap-1.5">
                             <Link href={href} className="hover:text-teal-700 transition-colors">{label}</Link>
@@ -340,7 +342,7 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                                 <button
                                     onClick={() => {
                                         navigator.clipboard?.writeText(window.location.href)
-                                            .catch(() => {});
+                                            .catch(() => { });
                                         showToast('Link copied!');
                                     }}
                                     className="h-10 bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-lg text-xs font-semibold text-gray-500 flex items-center justify-center gap-1.5 transition-colors"
@@ -367,9 +369,9 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                             {/* Trust badges */}
                             <div className="mt-4 sm:mt-5 flex flex-col gap-2">
                                 {[
-                                    { icon: TruckIcon,      text: `Free shipping via ${device.shippingProvider}` },
+                                    { icon: TruckIcon, text: `Free shipping via ${device.shippingProvider}` },
                                     { icon: ShieldCheckIcon, text: '5-day inspection window' },
-                                    { icon: ArrowPathIcon,  text: '30-day hassle-free returns' },
+                                    { icon: ArrowPathIcon, text: '30-day hassle-free returns' },
                                 ].map(({ icon: Icon, text }) => (
                                     <div key={text} className="flex items-center gap-2.5 text-xs text-gray-500">
                                         <Icon className="w-4 h-4 text-teal-600 shrink-0" />{text}
@@ -398,8 +400,8 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                             </div>
                             <div className="grid grid-cols-3 gap-2 mb-4">
                                 {[
-                                    { val: device.seller.rating,       label: 'Rating'   },
-                                    { val: device.seller.totalSales,   label: 'Sales'    },
+                                    { val: device.seller.rating, label: 'Rating' },
+                                    { val: device.seller.totalSales, label: 'Sales' },
                                     { val: device.seller.responseTime, label: 'Response' },
                                 ].map(({ val, label }) => (
                                     <div key={label} className="text-center py-3 bg-gray-50 rounded-xl">
@@ -409,11 +411,25 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                                 ))}
                             </div>
                             <button
-                                onClick={() => showToast('Message sent to seller!')}
+                                onClick={() => setMessageModalOpen(true)}
                                 className="w-full h-11 border-2 border-gray-200 hover:border-teal-400 text-gray-600 hover:text-teal-700 font-semibold rounded-xl flex items-center justify-center gap-2 text-sm transition-colors"
                             >
                                 <ChatBubbleLeftIcon className="w-4 h-4" /> Message Seller
                             </button>
+
+                            {/* Real message modal */}
+                            <MessageModal
+                                isOpen={messageModalOpen}
+                                onClose={() => setMessageModalOpen(false)}
+                                sellerId={device.seller.id}
+                                sellerName={device.seller.name}
+                                sellerAvatarColor={device.seller.avatarColor}
+                                sellerInitials={device.seller.initials}
+                                productId={device.id}
+                                productTitle={device.fullName}
+                                productImage={device.images[0] ?? undefined}
+                                productPrice={device.price}
+                            />
                         </div>
 
                         {/* ── IMEI VERIFICATION CARD ── */}
