@@ -1,21 +1,37 @@
 'use server'
 
 // src/actions/messages.ts
-// Conversations: id, buyer_id, seller_id, product_id,
-//                last_message, last_message_at, created_at
-// Messages:      id, conversation_id, sender_id, content,
-//                created_at, read_at
+// ─────────────────────────────────────────────────────────────────
+// Messaging server actions — schema matched to actual Supabase columns:
+//
+// conversations: id, buyer_id, seller_id, product_id,
+//               last_message, last_message_at, created_at, updated_at
+//
+// messages: id, conversation_id, sender_id, recipient_id,
+//           content, is_read, read_at, inserted_at, created_at,
+//           updated_at, topic, product_id, private,
+//           is_system_message, is_flagged
+//           (extension, payload, order_id, event, attachments,
+//            binary_payload are optional/nullable — omitted)
+// ─────────────────────────────────────────────────────────────────
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
-type ActionResult = { success: boolean; error?: string; conversationId?: string }
+type ActionResult = {
+    success: boolean
+    error?: string
+    conversationId?: string
+}
 
+// ─────────────────────────────────────────────────────────────────
+// SEND MESSAGE (or start a new conversation)
+// ─────────────────────────────────────────────────────────────────
 export async function actionSendMessage({
     receiverId,
     productId,
     content,
-    conversationId: existingId,
+    conversationId: existingConversationId,
 }: {
     receiverId: string
     productId: string
@@ -23,8 +39,8 @@ export async function actionSendMessage({
     conversationId?: string
 }): Promise<ActionResult> {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
 
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { success: false, error: 'You must be logged in to send messages' }
     if (user.id === receiverId) return { success: false, error: 'You cannot message yourself' }
 
@@ -35,11 +51,11 @@ export async function actionSendMessage({
     const now = new Date().toISOString()
 
     try {
-        let conversationId = existingId
+        let conversationId = existingConversationId
 
+        // ── Find or create conversation ──────────────────────────────
         if (!conversationId) {
-            // Find existing conversation for this buyer+seller+product combo
-            const { data: existing } = await supabase
+            const { data: existing, error: findErr } = await supabase
                 .from('conversations')
                 .select('id')
                 .eq('buyer_id', user.id)
@@ -47,10 +63,14 @@ export async function actionSendMessage({
                 .eq('product_id', productId)
                 .maybeSingle()
 
+            if (findErr) {
+                console.error('[messages] find conversation error:', findErr)
+                return { success: false, error: 'Failed to find conversation. Please try again.' }
+            }
+
             if (existing) {
                 conversationId = existing.id
             } else {
-                // Create new conversation
                 const { data: created, error: convErr } = await supabase
                     .from('conversations')
                     .insert({
@@ -64,36 +84,63 @@ export async function actionSendMessage({
                     .single()
 
                 if (convErr || !created) {
+                    console.error('[messages] create conversation error:', convErr)
                     return { success: false, error: 'Failed to start conversation. Please try again.' }
                 }
+
                 conversationId = created.id
             }
         }
 
-        // Insert the message
-        const { error: msgErr } = await supabase.from('messages').insert({
-            conversation_id: conversationId,
-            sender_id: user.id,
-            content: trimmed,
-        })
+        // ── Insert message with all required columns ──────────────────
+        // Your messages table requires: sender_id, recipient_id, content
+        // conversation_id links it to the thread
+        const { error: msgErr } = await supabase
+            .from('messages')
+            .insert({
+                conversation_id: conversationId,
+                sender_id: user.id,
+                recipient_id: receiverId,   // ← your table has this column
+                content: trimmed,
+                product_id: productId,    // handy for context
+                is_read: false,        // starts unread
+                is_system_message: false,
+                is_flagged: false,
+                private: true,         // private DM between buyer & seller
+            })
 
-        if (msgErr) return { success: false, error: 'Failed to send message. Please try again.' }
+        if (msgErr) {
+            console.error('[messages] insert message error:', msgErr)
+            return {
+                success: false,
+                error: `Failed to send: ${msgErr.message}`,
+            }
+        }
 
-        // Update conversation preview snippet
+        // ── Update conversation preview ───────────────────────────────
         await supabase
             .from('conversations')
-            .update({ last_message: trimmed.slice(0, 100), last_message_at: now })
+            .update({
+                last_message: trimmed.slice(0, 100),
+                last_message_at: now,
+            })
             .eq('id', conversationId)
 
         revalidatePath('/dashboard/messages')
         revalidatePath(`/dashboard/messages/${conversationId}`)
 
         return { success: true, conversationId }
+
     } catch (err) {
+        console.error('[messages] unexpected error:', err)
         return { success: false, error: err instanceof Error ? err.message : 'Unexpected error' }
     }
 }
 
+// ─────────────────────────────────────────────────────────────────
+// MARK MESSAGES AS READ
+// Your table uses `is_read` boolean + `read_at` timestamp
+// ─────────────────────────────────────────────────────────────────
 export async function actionMarkMessagesRead(conversationId: string): Promise<void> {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -101,10 +148,13 @@ export async function actionMarkMessagesRead(conversationId: string): Promise<vo
 
     await supabase
         .from('messages')
-        .update({ read_at: new Date().toISOString() })
+        .update({
+            is_read: true,
+            read_at: new Date().toISOString(),
+        })
         .eq('conversation_id', conversationId)
-        .neq('sender_id', user.id)
-        .is('read_at', null)
+        .eq('recipient_id', user.id)  // only mark messages sent TO me
+        .eq('is_read', false)
 
     revalidatePath('/dashboard/messages')
     revalidatePath(`/dashboard/messages/${conversationId}`)
