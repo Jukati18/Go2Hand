@@ -97,17 +97,7 @@ export default function SellDeviceForm() {
         setSubmitting(true)
 
         try {
-            // Fail fast if the session is already dead — avoids a misleading
-            // "5%" flash before the per-photo check inside uploadProductImage
-            // catches it anyway.
-            const { data: { session } } = await (await import('@/lib/supabaseClient')).supabase.auth.getSession()
-            if (!session) {
-                throw new Error('Your session has expired. Please log in again and retry publishing.')
-            }
-            
             // ── STEP 1: Upload photos ──────────────────────────────
-            // Use a temp ID for the storage path — the product row will
-            // be created after with the returned image URLs.
             const tempId = crypto.randomUUID()
             const total = data.photos.length
             let done = 0
@@ -150,13 +140,10 @@ export default function SellDeviceForm() {
             fd.set('title', titleText)
             fd.set('brand_id', data.brand.id)
             fd.set('category_id', data.category.id)
-            // Only set device_model_id if one was actually selected —
-            // sending an empty string causes a UUID parse error in Postgres.
             if (data.model?.id) {
                 fd.set('device_model_id', data.model.id)
             }
             fd.set('price', String(Number(data.price)))
-            // original_price: fall back to the asking price if not set
             fd.set('original_price', String(Number(data.originalPrice) || Number(data.price)))
             fd.set('condition', data.condition)
             fd.set('color', data.color || 'Unknown')
@@ -166,7 +153,6 @@ export default function SellDeviceForm() {
             fd.set('icloud_status', data.icloudStatus || 'unlocked')
             fd.set('carrier_status', data.carrierStatus || 'unlocked')
             fd.set('description', data.description || '')
-            // Join image URLs — guaranteed non-empty because we validated above
             fd.set('images', imageUrls.join(','))
             fd.set('specs', JSON.stringify(data.specs || {}))
 
@@ -188,9 +174,11 @@ export default function SellDeviceForm() {
             setUploadPhase('Done! Redirecting…')
 
             // ── STEP 4: Navigate to the new listing ───────────────
-            // Small delay so the user sees the 100% state
             await new Promise(r => setTimeout(r, 600))
             router.push(`/devices/${result.deviceId}`)
+            // Don't reset `submitting` here — component is about to
+            // unmount on navigation. If navigation itself throws
+            // (e.g. blocked), the catch/finally below still cover it.
 
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.'

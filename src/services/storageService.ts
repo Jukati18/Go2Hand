@@ -1,15 +1,9 @@
-// lib/storageService.ts — upload device photos to Supabase Storage
+// src/services/storageService.ts
 import { supabase } from '../lib/supabaseClient'
 
 const BUCKET = 'device-images'
-const UPLOAD_TIMEOUT_MS = 25_000 // hard ceiling so a stuck request can never hang the UI forever
+const UPLOAD_TIMEOUT_MS = 25_000
 
-/**
- * Race any promise against a timeout. This is the actual fix for the
- * "stuck at 5% forever" bug — previously the upload() call had nothing
- * forcing it to settle, so if the underlying fetch stalled, the await
- * in SellDeviceForm just sat there with no error and no progress.
- */
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
     return new Promise<T>((resolve, reject) => {
         const timer = setTimeout(() => {
@@ -26,29 +20,26 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
     })
 }
 
-/**
- * Fail fast if there's no live session, instead of letting upload()
- * attempt a request that RLS will reject (or that can stall while the
- * SDK tries to refresh an expired token).
- */
-async function assertAuthenticated(): Promise<void> {
-    const { data: { session }, error } = await supabase.auth.getSession()
-    if (error || !session) {
-        throw new Error('Your session has expired. Please sign in again and retry.')
-    }
-}
+// REMOVED: assertAuthenticated().
+// It called supabase.auth.getSession() directly with NO timeout, ahead of
+// every single photo upload. That call can deadlock via Supabase's
+// navigator.locks-guarded session refresh queue (the same lock contention
+// that caused the earlier SellDeviceForm hang) — and because it ran BEFORE
+// withTimeout(...) wraps anything, a hang here was completely invisible to
+// the 25s upload timeout below. It's redundant anyway: if the session is
+// actually dead, supabase.storage.upload() rejects with its own auth error,
+// and that call IS wrapped in withTimeout, so failures now surface in
+// ≤25s with a clear message instead of hanging forever.
 
 export async function uploadProductImage(
     file: File,
     productId: string,
     index: number
 ): Promise<string> {
-    await assertAuthenticated()
-
     const ext = file.name.split('.').pop() || 'jpg'
     const path = `products/${productId}/${index}.${ext}`
 
-    const { error } = await withTimeout(
+    const { error } = await withTimeout<{ data: any; error: any }>(
         supabase.storage.from(BUCKET).upload(path, file, { upsert: true, contentType: file.type }),
         UPLOAD_TIMEOUT_MS,
         `Photo ${index + 1} upload`
@@ -64,12 +55,10 @@ export async function uploadProductImage(
 }
 
 export async function uploadAvatar(file: File, userId: string): Promise<string> {
-    await assertAuthenticated()
-
     const ext = file.name.split('.').pop() || 'jpg'
     const path = `avatars/${userId}.${ext}`
 
-    const { error } = await withTimeout(
+    const { error } = await withTimeout<{ data: any; error: any }>(
         supabase.storage.from('avatars').upload(path, file, { upsert: true }),
         UPLOAD_TIMEOUT_MS,
         'Avatar upload'
@@ -87,7 +76,7 @@ export async function deleteProductImages(productId: string) {
         .list(`products/${productId}`)
 
     if (files?.length) {
-        const paths = files.map(f => `products/${productId}/${f.name}`)
+        const paths = files.map((f: { name: string }) => `products/${productId}/${f.name}`)
         await supabase.storage.from(BUCKET).remove(paths)
     }
 }
