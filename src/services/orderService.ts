@@ -81,7 +81,7 @@ const ORDER_SELECT = `
         id, title, images, price,
         brand:brands ( name )
     ),
-    buyer:users!reviewer_id ( id, username, full_name, avatar_url ),
+    buyer:users!buyer_id ( id, username, full_name, avatar_url ),
     seller:users!seller_id ( id, username, full_name, avatar_url )
 `
 
