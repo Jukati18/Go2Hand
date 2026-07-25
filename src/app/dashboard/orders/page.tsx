@@ -39,46 +39,47 @@ import { getUserOrders, getInspectionDaysRemaining } from '@/services/orderServi
 import { STATUS_LABELS } from '@/components/orders/OrderStatusTracker'
 import type { Order, OrderStatus } from '@/types/order'
 import { supabase } from '@/lib/supabaseClient'
+import type { User } from '@supabase/supabase-js'
 
 // ── Status filter tabs ────────────────────────────────────────────
 const STATUS_FILTERS: { label: string; value: OrderStatus | 'all' }[] = [
-    { label: 'All',         value: 'all'          },
-    { label: 'In Escrow',   value: 'paid'         },
-    { label: 'Shipped',     value: 'shipped'      },
-    { label: 'Inspecting',  value: 'in_inspection'},
-    { label: 'Completed',   value: 'completed'    },
-    { label: 'Disputed',    value: 'disputed'     },
-    { label: 'Cancelled',   value: 'cancelled'    },
+    { label: 'All', value: 'all' },
+    { label: 'In Escrow', value: 'paid' },
+    { label: 'Shipped', value: 'shipped' },
+    { label: 'Inspecting', value: 'in_inspection' },
+    { label: 'Completed', value: 'completed' },
+    { label: 'Disputed', value: 'disputed' },
+    { label: 'Cancelled', value: 'cancelled' },
 ]
 
 // ═════════════════════════════════════════════════════════════════
 export default function OrderHistoryPage() {
-    const [tab,          setTab]          = useState<'buyer' | 'seller'>('buyer')
+    const [tab, setTab] = useState<'buyer' | 'seller'>('buyer')
     const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all')
-    const [orders,       setOrders]       = useState<Order[]>([])
-    const [loading,      setLoading]      = useState(true)
-    const [userId,       setUserId]       = useState<string | null>(null)
+    const [orders, setOrders] = useState<Order[]>([])
+    const [loading, setLoading] = useState(true)
+    const [userId, setUserId] = useState<string | null>(null)
 
     // ── Get current user once ─────────────────────────────────────
     useEffect(() => {
-        supabase.auth.getUser().then(({ data: { user } }) => {
-            setUserId(user?.id ?? null)
+        supabase.auth.getUser().then((res: { data: { user: User | null } }) => {
+            setUserId(res.data.user?.id ?? null)
         })
     }, [])
 
     // ── Fetch orders on tab / filter change ───────────────────────
     useEffect(() => {
         if (!userId) return
-        ;(async () => {
-            setLoading(true)
-            const result = await getUserOrders(
-                userId,
-                tab,
-                statusFilter === 'all' ? undefined : statusFilter
-            )
-            setOrders(result)
-            setLoading(false)
-        })()
+            ; (async () => {
+                setLoading(true)
+                const result = await getUserOrders(
+                    userId,
+                    tab,
+                    statusFilter === 'all' ? undefined : statusFilter
+                )
+                setOrders(result)
+                setLoading(false)
+            })()
     }, [userId, tab, statusFilter])
 
     // ── Tab change resets the status filter ───────────────────────
@@ -89,9 +90,9 @@ export default function OrderHistoryPage() {
 
     // ── Derived stats (from the unfiltered 'all' orders when filter = all) ──
     // We compute from the current orders array; the "all" tab gives total counts.
-    const activeOrders     = orders.filter(o => ['paid', 'shipped'].includes(o.status))
+    const activeOrders = orders.filter(o => ['paid', 'shipped'].includes(o.status))
     const inspectionOrders = orders.filter(o => o.status === 'in_inspection')
-    const completedOrders  = orders.filter(o => o.status === 'completed')
+    const completedOrders = orders.filter(o => o.status === 'completed')
 
     // ── Filter: only show status tabs that have orders ────────────
     // Always show 'all'; only show other statuses if they have data
@@ -127,26 +128,22 @@ export default function OrderHistoryPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-7">
 
                         {/* Active in escrow */}
-                        <div className={`rounded-2xl border shadow-sm p-4 sm:p-5 transition-colors ${
-                            activeOrders.length > 0
-                                ? 'bg-teal-50 border-teal-200'
-                                : 'bg-white border-gray-100'
-                        }`}>
+                        <div className={`rounded-2xl border shadow-sm p-4 sm:p-5 transition-colors ${activeOrders.length > 0
+                            ? 'bg-teal-50 border-teal-200'
+                            : 'bg-white border-gray-100'
+                            }`}>
                             <div className="flex items-center gap-3 mb-2">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                    activeOrders.length > 0 ? 'bg-teal-100' : 'bg-gray-100'
-                                }`}>
-                                    <ShieldCheckIcon className={`w-4 h-4 ${
-                                        activeOrders.length > 0 ? 'text-teal-600' : 'text-gray-400'
-                                    }`} />
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${activeOrders.length > 0 ? 'bg-teal-100' : 'bg-gray-100'
+                                    }`}>
+                                    <ShieldCheckIcon className={`w-4 h-4 ${activeOrders.length > 0 ? 'text-teal-600' : 'text-gray-400'
+                                        }`} />
                                 </div>
                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                     In Escrow
                                 </p>
                             </div>
-                            <p className={`text-2xl font-black leading-none ${
-                                activeOrders.length > 0 ? 'text-teal-800' : 'text-gray-900'
-                            }`}>
+                            <p className={`text-2xl font-black leading-none ${activeOrders.length > 0 ? 'text-teal-800' : 'text-gray-900'
+                                }`}>
                                 {activeOrders.length}
                             </p>
                             <p className="text-xs text-gray-400 mt-1">
@@ -155,26 +152,22 @@ export default function OrderHistoryPage() {
                         </div>
 
                         {/* Needs inspection */}
-                        <div className={`rounded-2xl border shadow-sm p-4 sm:p-5 transition-colors ${
-                            inspectionOrders.length > 0
-                                ? 'bg-amber-50 border-amber-200'
-                                : 'bg-white border-gray-100'
-                        }`}>
+                        <div className={`rounded-2xl border shadow-sm p-4 sm:p-5 transition-colors ${inspectionOrders.length > 0
+                            ? 'bg-amber-50 border-amber-200'
+                            : 'bg-white border-gray-100'
+                            }`}>
                             <div className="flex items-center gap-3 mb-2">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                    inspectionOrders.length > 0 ? 'bg-amber-100' : 'bg-gray-100'
-                                }`}>
-                                    <ClockIcon className={`w-4 h-4 ${
-                                        inspectionOrders.length > 0 ? 'text-amber-500' : 'text-gray-400'
-                                    }`} />
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${inspectionOrders.length > 0 ? 'bg-amber-100' : 'bg-gray-100'
+                                    }`}>
+                                    <ClockIcon className={`w-4 h-4 ${inspectionOrders.length > 0 ? 'text-amber-500' : 'text-gray-400'
+                                        }`} />
                                 </div>
                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                     Inspecting
                                 </p>
                             </div>
-                            <p className={`text-2xl font-black leading-none ${
-                                inspectionOrders.length > 0 ? 'text-amber-700' : 'text-gray-900'
-                            }`}>
+                            <p className={`text-2xl font-black leading-none ${inspectionOrders.length > 0 ? 'text-amber-700' : 'text-gray-900'
+                                }`}>
                                 {inspectionOrders.length}
                             </p>
                             {inspectionOrders.length > 0 ? (
@@ -211,8 +204,8 @@ export default function OrderHistoryPage() {
                 <div className="flex items-center gap-1 bg-white border border-gray-100 rounded-xl p-1
                     w-fit mb-5 shadow-sm">
                     {([
-                        { id: 'buyer'  as const, label: 'My Purchases', icon: ShoppingBagIcon },
-                        { id: 'seller' as const, label: 'My Sales',     icon: TagIcon         },
+                        { id: 'buyer' as const, label: 'My Purchases', icon: ShoppingBagIcon },
+                        { id: 'seller' as const, label: 'My Sales', icon: TagIcon },
                     ]).map(({ id, label, icon: Icon }) => (
                         <button
                             key={id}
@@ -245,9 +238,8 @@ export default function OrderHistoryPage() {
                     >
                         All
                         {!loading && (
-                            <span className={`ml-1.5 text-[10px] font-bold ${
-                                statusFilter === 'all' ? 'text-teal-200' : 'text-gray-400'
-                            }`}>
+                            <span className={`ml-1.5 text-[10px] font-bold ${statusFilter === 'all' ? 'text-teal-200' : 'text-gray-400'
+                                }`}>
                                 ({orders.length})
                             </span>
                         )}
@@ -276,9 +268,8 @@ export default function OrderHistoryPage() {
                                         }`}
                                 >
                                     {f!.label}
-                                    <span className={`ml-1.5 text-[10px] font-bold ${
-                                        statusFilter === f!.value ? 'text-teal-200' : 'text-gray-400'
-                                    }`}>
+                                    <span className={`ml-1.5 text-[10px] font-bold ${statusFilter === f!.value ? 'text-teal-200' : 'text-gray-400'
+                                        }`}>
                                         ({count})
                                     </span>
                                 </button>

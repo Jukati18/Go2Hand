@@ -38,6 +38,7 @@
  */
 
 import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ── Fetch wrapper: every request gets a 30s hard timeout so a stalled
 // network call never silently hangs the UI forever.
@@ -112,16 +113,14 @@ async function selfHealingLock<R>(
 // ── Augment the global namespace so TypeScript is happy with our cache key.
 declare global {
     // eslint-disable-next-line no-var
-    var __go2hand_supabase_client__:
-        | ReturnType<typeof createBrowserClient>
-        | undefined;
+    var __go2hand_supabase_client__: SupabaseClient | undefined;
 }
 
 /**
  * Returns the singleton Supabase browser client.
  * Safe to call many times — always returns the same instance.
  */
-export function createClient() {
+export function createClient(): SupabaseClient {
     if (!globalThis.__go2hand_supabase_client__) {
         globalThis.__go2hand_supabase_client__ = createBrowserClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -129,8 +128,6 @@ export function createClient() {
             {
                 global: { fetch: fetchWithTimeout },
                 auth: {
-                    // This is the actual fix for the recurring deadlock —
-                    // see selfHealingLock() above.
                     lock: selfHealingLock,
                 },
             }
