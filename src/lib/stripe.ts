@@ -10,8 +10,5 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    // Pin the API version so a Stripe dashboard upgrade never silently
-    // changes the shape of objects your code depends on.
-    apiVersion: '2026-04-22.dahlia',
     typescript: true,
 })
