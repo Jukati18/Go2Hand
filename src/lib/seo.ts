@@ -10,7 +10,7 @@
 
 // ── Site-wide constants ───────────────────────────────────────────
 export const SITE_NAME    = 'Go2Hand'
-export const SITE_URL     = 'https://go2hand.vn'          // update with real domain
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://go2hand.vn'
 export const SITE_TAGLINE = "Vietnam's Trusted Second-Hand Marketplace"
 export const TWITTER_HANDLE = '@go2handvn'                // update when account exists
 
