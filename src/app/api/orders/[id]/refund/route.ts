@@ -16,7 +16,6 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { stripe } from '@/lib/stripe'
 import { refundOrder } from '@/services/orderWriteService'
-import Stripe from 'stripe'
 import * as Sentry from "@sentry/nextjs";
 
 export async function POST(
