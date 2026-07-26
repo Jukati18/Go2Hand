@@ -15,6 +15,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
+import { GoogleAnalytics } from '@next/third-parties/google'
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -32,11 +33,7 @@ export const metadata: Metadata = {
         "Vietnam's most trusted marketplace for pre-owned devices. IMEI verified, escrow protected.",
 };
 
-export default function RootLayout({
-    children,
-}: Readonly<{
-    children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
     return (
         <html lang="en">
             <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
@@ -45,6 +42,8 @@ export default function RootLayout({
                         {children}
                     </CartProvider>
                 </AuthProvider>
+                {/* Loads GA4 with Next.js-optimized script strategy (lazy, after hydration) */}
+                <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID!} />
             </body>
         </html>
     );
