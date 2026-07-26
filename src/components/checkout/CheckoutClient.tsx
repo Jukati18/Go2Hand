@@ -14,9 +14,14 @@
 //   Submit shipping → POST /api/checkout → clientSecret + orderId
 //   → Initialize Stripe Elements → buyer pays
 //   → stripe.confirmPayment() → redirect to /checkout/success
+//
+// GA4:
+//   begin_checkout fires once, on mount (this page is only reached
+//   after clicking "Buy Now" / "Checkout", so mount = checkout start)
+//   purchase fires once payment succeeds, right before navigating away
 // ─────────────────────────────────────────────────────────────────
 
-import { useState, FormEvent } from 'react'
+import { useState, useEffect, FormEvent } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -38,6 +43,7 @@ import {
 } from '@heroicons/react/24/outline'
 import type { Device } from '@/types/device'
 import type { ShippingAddress } from '@/types/order'
+import { trackBeginCheckout, trackPurchase } from '@/lib/analytics'
 
 // ── Initialize Stripe ONCE outside the component ─────────────────
 // This avoids re-creating the Stripe object on every render.
@@ -111,6 +117,21 @@ export default function CheckoutClient({ device }: CheckoutClientProps) {
     const discount = device.originalPrice > device.price
         ? Math.round((1 - device.price / device.originalPrice) * 100)
         : 0
+
+    // ── GA4: begin_checkout — this component only mounts once the
+    // buyer has already clicked "Buy Now" on the device page, so
+    // mount time IS the start of checkout.
+    useEffect(() => {
+        trackBeginCheckout({
+            item_id: device.id,
+            item_name: device.fullName,
+            item_brand: device.brand,
+            item_category: device.category,
+            price: device.price,
+            quantity: 1,
+        })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [device.id])
 
     // ── Step 1 submit — create PaymentIntent + order ──────────────
     async function handleShippingSubmit(e: FormEvent) {
@@ -195,7 +216,7 @@ export default function CheckoutClient({ device }: CheckoutClientProps) {
                         >
                             <StripePaymentForm
                                 orderId={orderId}
-                                devicePrice={device.price}
+                                device={device}
                                 onBack={() => setStep('shipping')}
                             />
                         </Elements>
@@ -364,11 +385,11 @@ function ShippingForm({
 // ─────────────────────────────────────────────────────────────────
 function StripePaymentForm({
     orderId,
-    devicePrice,
+    device,
     onBack,
 }: {
     orderId: string
-    devicePrice: number
+    device: Device
     onBack: () => void
 }) {
     const stripe   = useStripe()
@@ -402,6 +423,27 @@ function StripePaymentForm({
             })
 
             if (confirmErr) throw new Error(confirmErr.message)
+
+            // ── GA4: purchase ─────────────────────────────────────
+            // Fires only on this non-redirect success path (card didn't
+            // need 3DS, so we know synchronously that payment succeeded).
+            // 3DS-redirect payments are still recorded via GA's automatic
+            // page_view on /checkout/success, just without transaction
+            // details attached — acceptable trade-off since Stripe test
+            // cards (4242...) never trigger the redirect branch anyway.
+            trackPurchase({
+                orderId,
+                value: device.price,
+                shipping: 0,
+                item: {
+                    item_id: device.id,
+                    item_name: device.fullName,
+                    item_brand: device.brand,
+                    item_category: device.category,
+                    price: device.price,
+                    quantity: 1,
+                },
+            })
 
             // Non-redirect payment succeeded — go to success page
             router.push(`/checkout/success?order_id=${orderId}`)
@@ -491,7 +533,7 @@ function StripePaymentForm({
                 {submitting ? <Spinner /> : (
                     <>
                         <ShieldCheckIcon className="w-4 h-4" />
-                        Pay ${devicePrice} — Escrow Protected
+                        Pay ${device.price} — Escrow Protected
                     </>
                 )}
             </button>

@@ -7,7 +7,7 @@
 // Desktop: two-column (specs | buy card sticky)
 // ============================================
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -26,6 +26,7 @@ import ReviewList from '@/components/reviews/ReviewList';
 import AddToCartButton from '@/components/cart/AddToCartButton';
 import ReportModal from '@/components/moderation/ReportModal';
 import MessageModal from '@/components/messages/MessageModal'
+import { trackViewItem } from '@/lib/analytics';
 
 const CHECK_DOT: Record<CheckStatus, string> = {
     ok: 'bg-emerald-500',
@@ -76,6 +77,19 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
     const discount = Math.round((1 - currentPrice / device.originalPrice) * 100);
     const reviewStats = computeReviewStats(device.reviews);
     const [messageModalOpen, setMessageModalOpen] = useState(false)
+
+    // ── GA4: view_item — fires once per device detail page load ──
+    useEffect(() => {
+        trackViewItem({
+            item_id: device.id,
+            item_name: device.fullName,
+            item_brand: device.brand,
+            item_category: device.category,
+            price: currentPrice,
+            quantity: 1,
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [device.id]);
 
     function showToast(msg: string) {
         setToast(msg);
@@ -315,6 +329,8 @@ export default function DetailPage({ device, similarDevices, initialSaved = fals
                                 title={device.fullName}
                                 price={currentPrice}
                                 imageUrl={device.images[0] ?? null}
+                                brand={device.brand}
+                                category={device.category}
                             />
 
                             {/* Make Offer */}

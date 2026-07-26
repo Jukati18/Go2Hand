@@ -10,18 +10,26 @@
 //   adding     → brief pulse animation on click
 //
 // Uses CartContext so the Navbar badge updates instantly.
+//
+// GA4: fires add_to_cart the moment the item is actually added
+// (not on every click — showAdded guards against double-firing
+// when the button is clicked again while already in the cart).
 // ─────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ShoppingCartIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { useCart } from '@/context/CartContext';
+import { trackAddToCart } from '@/lib/analytics';
 
 interface AddToCartButtonProps {
     deviceId: string;
     title: string;
     price: number;
     imageUrl: string | null;
+    /** Optional — improves GA4 item data when the parent has it (device detail page) */
+    brand?: string;
+    category?: string;
 }
 
 export default function AddToCartButton({
@@ -29,6 +37,8 @@ export default function AddToCartButton({
     title,
     price,
     imageUrl,
+    brand,
+    category,
 }: AddToCartButtonProps) {
     const { addItem, isInCart } = useCart();
     const [justAdded, setJustAdded] = useState(false);
@@ -41,6 +51,16 @@ export default function AddToCartButton({
         if (showAdded) return;
         addItem({ deviceId, title, price, imageUrl });
         setJustAdded(true);
+
+        // ── GA4: add_to_cart ────────────────────────────────────
+        trackAddToCart({
+            item_id: deviceId,
+            item_name: title,
+            item_brand: brand,
+            item_category: category,
+            price,
+            quantity: 1,
+        });
     }
 
     // Reset justAdded if item is removed from cart externally
