@@ -18,6 +18,7 @@ import {
     refundOrder,
 } from '@/services/orderWriteService'
 import type { CreateOrderInput } from '@/types/order'
+import * as Sentry from "@sentry/nextjs";
 
 type ActionResult = { success: boolean; error?: string; orderId?: string }
 
@@ -52,6 +53,7 @@ export async function actionCreateOrder(input: CreateOrderInput): Promise<Action
         revalidatePath('/dashboard/orders')
         return { success: true, orderId: id }
     } catch (err) {
+        Sentry.captureException(err, { tags: { area: 'order_action', action: 'create' } })
         return { success: false, error: err instanceof Error ? err.message : 'Failed to create order' }
     }
 }
@@ -73,6 +75,7 @@ export async function actionMarkShipped(
         revalidateOrderPages(orderId)
         return { success: true }
     } catch (err) {
+        Sentry.captureException(err, { tags: { area: 'order_action', action: 'mark_shipped' } })
         return { success: false, error: err instanceof Error ? err.message : 'Failed to update shipment' }
     }
 }
@@ -89,6 +92,7 @@ export async function actionMarkReceived(orderId: string): Promise<ActionResult>
         revalidateOrderPages(orderId)
         return { success: true }
     } catch (err) {
+        Sentry.captureException(err, { tags: { area: 'order_action', action: 'mark_received' } })
         return { success: false, error: err instanceof Error ? err.message : 'Failed to mark as received' }
     }
 }
@@ -147,6 +151,7 @@ export async function actionCompleteOrder(orderId: string): Promise<ActionResult
         return { success: true }
 
     } catch (err) {
+        Sentry.captureException(err, { tags: { area: 'order_action', action: 'complete' } })
         return { success: false, error: err instanceof Error ? err.message : 'Failed to complete order' }
     }
 }
@@ -166,6 +171,7 @@ export async function actionDisputeOrder(orderId: string, reason: string): Promi
         revalidateOrderPages(orderId)
         return { success: true }
     } catch (err) {
+        Sentry.captureException(err, { tags: { area: 'order_action', action: 'dispute' } })
         return { success: false, error: err instanceof Error ? err.message : 'Failed to open dispute' }
     }
 }
@@ -200,6 +206,7 @@ export async function actionCancelOrder(orderId: string): Promise<ActionResult> 
         return { success: true }
 
     } catch (err) {
+        Sentry.captureException(err, { tags: { area: 'order_action', action: 'cancel' } })
         return { success: false, error: err instanceof Error ? err.message : 'Failed to cancel order' }
     }
 }
@@ -267,6 +274,7 @@ export async function actionRefundOrder(orderId: string): Promise<ActionResult> 
         return { success: true }
 
     } catch (err) {
+        Sentry.captureException(err, { tags: { area: 'order_action', action: 'refund' } })
         return { success: false, error: err instanceof Error ? err.message : 'Failed to process refund' }
     }
 }

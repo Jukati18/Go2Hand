@@ -15,6 +15,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { stripe } from '@/lib/stripe'
 import { completeOrder } from '@/services/orderWriteService'
+import * as Sentry from "@sentry/nextjs";
 
 export async function POST(
     _request: NextRequest,
@@ -84,6 +85,7 @@ export async function POST(
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Internal server error'
         console.error('[POST /api/orders/[id]/release]', message)
+        Sentry.captureException(err, { tags: { area: 'escrow_api', route: 'release' } })
         return NextResponse.json({ error: message }, { status: 500 })
     }
 }

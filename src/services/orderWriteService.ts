@@ -5,6 +5,7 @@
 
 import { supabaseAdmin as supabase } from '@/lib/supabase/admin'
 import type { CreateOrderInput, OrderStatus } from '@/types/order'
+import * as Sentry from "@sentry/nextjs";
 
 const PLATFORM_FEE_RATE = 0.05
 
@@ -78,7 +79,6 @@ export async function confirmOrderPayment(
 ): Promise<void> {
     const now = new Date().toISOString()
 
-    // Find the order by Stripe PaymentIntent ID
     const { data: order, error: fetchErr } = await supabase
         .from('orders')
         .select('id, product_id, status')
@@ -86,8 +86,15 @@ export async function confirmOrderPayment(
         .single()
 
     if (fetchErr || !order) {
-        // Order not found — may have been created directly as 'paid' (non-Stripe flow)
         console.warn('confirmOrderPayment: order not found for PI', stripePaymentIntentId)
+        // This is a webhook-driven path — if Stripe confirms payment but we
+        // can't find the matching order, that's a real money/data mismatch,
+        // not just a benign miss. Surface it.
+        Sentry.captureMessage('confirmOrderPayment: no matching order for PaymentIntent', {
+            level: 'error',
+            tags: { area: 'escrow_payment' },
+            extra: { stripePaymentIntentId },
+        })
         return
     }
 

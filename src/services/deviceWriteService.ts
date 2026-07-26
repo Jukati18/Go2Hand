@@ -13,6 +13,7 @@ import type {
     UpdateDeviceInput,
     ListingStatus,
 } from '@/types/deviceInput'
+import * as Sentry from "@sentry/nextjs";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CREATE — insert a new device listing
@@ -42,43 +43,48 @@ export async function createDevice(
     const { data, error } = await supabase
         .from('products')
         .insert({
-            seller_id:         sellerId,
-            title:             input.title.trim(),
-            brand_id:          input.brand_id,
-            category_id:       input.category_id,
+            seller_id: sellerId,
+            title: input.title.trim(),
+            brand_id: input.brand_id,
+            category_id: input.category_id,
             // undefined → null (no model selected)
-            device_model_id:   input.device_model_id ?? null,
+            device_model_id: input.device_model_id ?? null,
 
-            price:             input.price,
-            original_price:    originalPrice,
+            price: input.price,
+            original_price: originalPrice,
 
-            condition:         input.condition,
-            color:             input.color.trim(),
-            storage_capacity:  input.storage_capacity,
-            battery_health:    batteryHealth,
+            condition: input.condition,
+            color: input.color.trim(),
+            storage_capacity: input.storage_capacity,
+            battery_health: batteryHealth,
 
-            images:            input.images,
+            images: input.images,
 
-            imei_status:       input.imei_status,
-            icloud_status:     input.icloud_status,
-            carrier_status:    input.carrier_status,
+            imei_status: input.imei_status,
+            icloud_status: input.icloud_status,
+            carrier_status: input.carrier_status,
 
-            specs:             input.specs ?? {},
-            description:       input.description?.trim() ?? null,
+            specs: input.specs ?? {},
+            description: input.description?.trim() ?? null,
 
             // New listings start as active and not yet featured
-            status:            'active' as ListingStatus,
-            is_verified:       false,
-            is_featured:       false,
-            view_count:        0,
+            status: 'active' as ListingStatus,
+            is_verified: false,
+            is_featured: false,
+            view_count: 0,
         })
         .select('id')
         .single()
 
     if (error) {
         console.error('[deviceWriteService.createDevice] Supabase error:', error)
+        Sentry.captureException(new Error(error.message), {
+            tags: { area: 'device_write', op: 'create' },
+            extra: { sellerId },
+        })
         throw new Error(`Failed to create listing: ${error.message}`)
     }
+
     return { id: data.id }
 }
 
@@ -96,20 +102,20 @@ export async function updateDevice(
         updated_at: new Date().toISOString(),
     }
 
-    if (input.title             !== undefined) updates.title            = input.title.trim()
-    if (input.price             !== undefined) updates.price            = input.price
-    if (input.original_price    !== undefined) updates.original_price   = input.original_price
-    if (input.condition         !== undefined) updates.condition        = input.condition
-    if (input.color             !== undefined) updates.color            = input.color.trim()
-    if (input.storage_capacity  !== undefined) updates.storage_capacity = input.storage_capacity
-    if (input.battery_health    !== undefined) updates.battery_health   = input.battery_health
-    if (input.images            !== undefined) updates.images           = input.images
-    if (input.imei_status       !== undefined) updates.imei_status      = input.imei_status
-    if (input.icloud_status     !== undefined) updates.icloud_status    = input.icloud_status
-    if (input.carrier_status    !== undefined) updates.carrier_status   = input.carrier_status
-    if (input.specs             !== undefined) updates.specs            = input.specs
-    if (input.description       !== undefined) updates.description      = input.description?.trim() ?? null
-    if (input.status            !== undefined) updates.status           = input.status
+    if (input.title !== undefined) updates.title = input.title.trim()
+    if (input.price !== undefined) updates.price = input.price
+    if (input.original_price !== undefined) updates.original_price = input.original_price
+    if (input.condition !== undefined) updates.condition = input.condition
+    if (input.color !== undefined) updates.color = input.color.trim()
+    if (input.storage_capacity !== undefined) updates.storage_capacity = input.storage_capacity
+    if (input.battery_health !== undefined) updates.battery_health = input.battery_health
+    if (input.images !== undefined) updates.images = input.images
+    if (input.imei_status !== undefined) updates.imei_status = input.imei_status
+    if (input.icloud_status !== undefined) updates.icloud_status = input.icloud_status
+    if (input.carrier_status !== undefined) updates.carrier_status = input.carrier_status
+    if (input.specs !== undefined) updates.specs = input.specs
+    if (input.description !== undefined) updates.description = input.description?.trim() ?? null
+    if (input.status !== undefined) updates.status = input.status
 
     const { error } = await supabase
         .from('products')
@@ -119,6 +125,10 @@ export async function updateDevice(
 
     if (error) {
         console.error('[deviceWriteService.updateDevice] Supabase error:', error)
+        Sentry.captureException(new Error(error.message), {
+            tags: { area: 'device_write', op: 'update' },
+            extra: { deviceId, sellerId },
+        })
         throw new Error(`Failed to update listing: ${error.message}`)
     }
 }
@@ -135,7 +145,7 @@ export async function deleteDevice(
     const { error } = await supabase
         .from('products')
         .update({
-            status:     'inactive' as ListingStatus,
+            status: 'inactive' as ListingStatus,
             updated_at: new Date().toISOString(),
         })
         .eq('id', deviceId)
@@ -143,6 +153,10 @@ export async function deleteDevice(
 
     if (error) {
         console.error('[deviceWriteService.deleteDevice] Supabase error:', error)
+        Sentry.captureException(new Error(error.message), {
+            tags: { area: 'device_write', op: 'delete' },
+            extra: { deviceId, sellerId },
+        })
         throw new Error(`Failed to delete listing: ${error.message}`)
     }
 }
@@ -156,13 +170,17 @@ export async function markDeviceAsSold(deviceId: string): Promise<void> {
     const { error } = await supabase
         .from('products')
         .update({
-            status:     'sold' as ListingStatus,
+            status: 'sold' as ListingStatus,
             updated_at: new Date().toISOString(),
         })
         .eq('id', deviceId)
 
     if (error) {
         console.error('[deviceWriteService.markDeviceAsSold] Supabase error:', error)
+        Sentry.captureException(new Error(error.message), {
+            tags: { area: 'device_write', op: 'mark_sold' },
+            extra: { deviceId },
+        })
         throw new Error(`Failed to mark device as sold: ${error.message}`)
     }
 }
@@ -188,6 +206,10 @@ export async function getSellerDevices(sellerId: string) {
 
     if (error) {
         console.error('[deviceWriteService.getSellerDevices] Supabase error:', error)
+        Sentry.captureException(new Error(error.message), {
+            tags: { area: 'device_write', op: 'list_seller_devices' },
+            extra: { sellerId },
+        })
         throw new Error(`Failed to fetch listings: ${error.message}`)
     }
     return data ?? []

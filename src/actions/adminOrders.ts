@@ -20,6 +20,7 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { revalidatePath } from 'next/cache'
 import { stripe } from '@/lib/stripe'
+import * as Sentry from '@sentry/nextjs'
 
 export type AdminOrderAction = 'force_complete' | 'force_refund' | 'force_cancel'
 
@@ -110,6 +111,10 @@ export async function actionAdminOrderAction(
                         const msg = stripeErr instanceof Error ? stripeErr.message : String(stripeErr)
                         // Don't block if already captured
                         if (!msg.includes('already been captured')) {
+                            Sentry.captureException(stripeErr, {
+                                tags: { action: 'admin_force_complete' },
+                                extra: { orderId, intentId: order.stripe_payment_intent_id }
+                            })
                             return { success: false, error: `Stripe error: ${msg}` }
                         }
                     }
@@ -154,6 +159,10 @@ export async function actionAdminOrderAction(
                         // Any other status (cancelled, etc.) — nothing to do on Stripe side
                     } catch (stripeErr) {
                         console.error('[adminOrders] Stripe refund error:', stripeErr)
+                        Sentry.captureException(stripeErr, {
+                            tags: { action: 'admin_force_refund' },
+                            extra: { orderId, intentId: order.stripe_payment_intent_id }
+                        })
                         // Log but don't block DB update — admin should verify in Stripe dashboard
                     }
                 }
@@ -195,6 +204,10 @@ export async function actionAdminOrderAction(
                         await stripe.paymentIntents.cancel(order.stripe_payment_intent_id)
                     } catch (stripeErr) {
                         console.error('[adminOrders] Stripe cancel error:', stripeErr)
+                        Sentry.captureException(stripeErr, {
+                            tags: { action: 'admin_force_cancel' },
+                            extra: { orderId, intentId: order.stripe_payment_intent_id }
+                        })
                     }
                 }
 
@@ -231,6 +244,10 @@ export async function actionAdminOrderAction(
     } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unexpected error'
         console.error('[adminOrders] action error:', msg)
+        Sentry.captureException(err, {
+            tags: { action: 'admin_order_action_global' },
+            extra: { orderId, payload }
+        })
         return { success: false, error: msg }
     }
 }

@@ -17,6 +17,7 @@ import { cookies } from 'next/headers'
 import { stripe } from '@/lib/stripe'
 import { refundOrder } from '@/services/orderWriteService'
 import Stripe from 'stripe'
+import * as Sentry from "@sentry/nextjs";
 
 export async function POST(
     _request: NextRequest,
@@ -112,6 +113,7 @@ export async function POST(
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Internal server error'
         console.error('[POST /api/orders/[id]/refund]', message)
+        Sentry.captureException(err, { tags: { area: 'escrow_api', route: 'refund'} })
         return NextResponse.json({ error: message }, { status: 500 })
     }
 }

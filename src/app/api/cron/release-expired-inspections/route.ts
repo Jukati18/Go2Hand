@@ -33,6 +33,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { supabaseAdmin as supabase } from '@/lib/supabase/admin'
+import * as Sentry from "@sentry/nextjs";
 
 // Force dynamic so Next.js never statically renders this route
 export const dynamic = 'force-dynamic'
@@ -50,6 +51,10 @@ export async function GET(request: NextRequest) {
 
     if (!expectedToken) {
         console.error('[Cron] CRON_SECRET env var is not set')
+        Sentry.captureMessage('[Cron] CRON_SECRET is not configured — auto-release is completely disabled', {
+            level: 'fatal',
+            tags: { area: 'escrow_cron', step: 'config' },
+        })
         return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 })
     }
 
@@ -75,6 +80,9 @@ export async function GET(request: NextRequest) {
 
     if (fetchError) {
         console.error('[Cron] Failed to fetch expired orders:', fetchError.message)
+        Sentry.captureException(new Error(fetchError.message), {
+            tags: { area: 'escrow_cron', step: 'fetch_expired_orders' },
+        })
         return NextResponse.json({ error: fetchError.message }, { status: 500 })
     }
 
@@ -102,17 +110,16 @@ export async function GET(request: NextRequest) {
                     await stripe.paymentIntents.capture(order.stripe_payment_intent_id)
                     console.log(`[Cron] Captured PI ${order.stripe_payment_intent_id} for order ${order.id}`)
                 } catch (stripeErr: unknown) {
-                    // If Stripe throws "No such payment_intent" or the PI was
-                    // already captured / cancelled, log and continue to DB update.
                     const msg = stripeErr instanceof Error ? stripeErr.message : String(stripeErr)
 
-                    // PI already captured = still a success, update DB
                     if (!msg.includes('already been captured')) {
                         console.error(`[Cron] Stripe capture failed for order ${order.id}:`, msg)
-                        // Re-throw so this order is counted as failed
+                        Sentry.captureException(stripeErr, {
+                            tags: { area: 'escrow_cron', step: 'stripe_capture' },
+                            extra: { orderId: order.id, paymentIntentId: order.stripe_payment_intent_id },
+                        })
                         throw new Error(`Stripe capture failed: ${msg}`)
                     }
-
                     console.warn(`[Cron] PI ${order.stripe_payment_intent_id} was already captured`)
                 }
             } else {
@@ -132,6 +139,10 @@ export async function GET(request: NextRequest) {
                 .eq('status', 'in_inspection') // double-check status hasn't changed
 
             if (updateError) {
+                Sentry.captureException(new Error(updateError.message), {
+                    tags: { area: 'escrow_cron', step: 'mark_completed' },
+                    extra: { orderId: order.id },
+                })
                 throw new Error(`DB update failed: ${updateError.message}`)
             }
 
@@ -150,6 +161,14 @@ export async function GET(request: NextRequest) {
         .map(r => r.reason?.message ?? 'Unknown error')
 
     console.log(`[Cron] Done. Released: ${succeeded.length}, Failed: ${failed.length}`)
+
+    if (failed.length > 0) {
+        Sentry.captureMessage(`[Cron] release-expired-inspections had ${failed.length} failure(s)`, {
+            level: 'error',
+            tags: { area: 'escrow_cron' },
+            extra: { errors: failed },
+        })
+    }
 
     return NextResponse.json({
         released: succeeded.length,
