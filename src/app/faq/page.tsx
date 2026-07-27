@@ -548,7 +548,7 @@ export default function FaqPage() {
                                 </div>
                                 <div>
                                     <p className="text-base font-bold text-white mb-1">
-                                        Didn't find your answer?
+                                        Didn&apos;t find your answer?
                                     </p>
                                     <p className="text-sm text-teal-200 leading-relaxed">
                                         Our trust & safety team is available during business hours and responds to every message within a few hours.

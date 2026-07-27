@@ -145,7 +145,7 @@ export default function CartPage() {
                                     <p className="text-xs text-blue-700 leading-relaxed">
                                         <span className="font-bold">Heads up:</span> Second-hand devices
                                         are unique items. Each needs its own secure checkout — click
-                                        "Buy Now" on the device you want to purchase first.
+                                        &quot;Buy Now&quot; on the device you want to purchase first.
                                     </p>
                                 </div>
                             )}

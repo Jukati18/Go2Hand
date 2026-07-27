@@ -87,7 +87,7 @@ export default function VerificationBadge({
                 <div>
                     <p className="text-sm font-bold text-emerald-900 mb-0.5">IMEI Verified — Clean</p>
                     <p className="text-xs text-emerald-700 leading-relaxed">
-                        This device's IMEI has been checked against stolen/blacklisted databases
+                        This device&apos;s IMEI has been checked against stolen/blacklisted databases
                         and returned clean. Safe to purchase.
                     </p>
                 </div>

@@ -535,7 +535,7 @@ export default function UserTable({ users: initialUsers }: { users: AdminUser[] 
                         Showing <span className="font-semibold text-gray-800">
                             {Math.min((page - 1) * PAGE_SIZE + 1, filtered.length)}–{Math.min(page * PAGE_SIZE, filtered.length)}
                         </span> of <span className="font-semibold text-gray-800">{filtered.length}</span> users
-                        {search && <span className="text-gray-400"> matching "{search}"</span>}
+                        {search && <span className="text-gray-400"> matching &quot;{search}&quot;</span>}
                     </p>
                 </div>
 

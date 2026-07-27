@@ -137,7 +137,7 @@ export default function AboutPage() {
                             </p>
                             <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mb-5 leading-tight">
                                 The second-hand market in Vietnam is huge.<br />
-                                The trust layer isn't.
+                                The trust layer isn&apos;t.
                             </h2>
                             <div className="space-y-4 text-gray-600 leading-relaxed">
                                 <p>
@@ -147,8 +147,8 @@ export default function AboutPage() {
                                     no recourse.
                                 </p>
                                 <p>
-                                    Sellers don't always disclose real battery health. IMEI blacklists go
-                                    unchecked. Buyers receive devices that don't match photos. Money disappears.
+                                    Sellers don&apos;t always disclose real battery health. IMEI blacklists go
+                                    unchecked. Buyers receive devices that don&apos;t match photos. Money disappears.
                                     Trust evaporates.
                                 </p>
                                 <p className="font-semibold text-gray-900">
@@ -212,7 +212,7 @@ export default function AboutPage() {
                             What we believe
                         </p>
                         <h2 className="text-2xl sm:text-3xl font-black text-gray-900">
-                            Four principles we won't compromise on
+                            Four principles we won&apos;t compromise on
                         </h2>
                     </div>
 

@@ -191,8 +191,8 @@ export default function HowItWorksPage() {
                         <span className="text-teal-300"> you say so.</span>
                     </h1>
                     <p className="text-teal-100 text-lg leading-relaxed max-w-2xl mx-auto mb-8">
-                        Go2Hand holds your payment in a secure escrow account until you've inspected the device
-                        and confirmed it matches the listing. No approvals, no payment. It's that simple.
+                        Go2Hand holds your payment in a secure escrow account until you&apos;ve inspected the device
+                        and confirmed it matches the listing. No approvals, no payment. It&apos;s that simple.
                     </p>
 
                     {/* Visual escrow flow summary */}
@@ -337,8 +337,8 @@ export default function HowItWorksPage() {
                             How escrow actually works
                         </h2>
                         <p className="text-gray-500 text-sm leading-relaxed max-w-xl mx-auto">
-                            We use Stripe's manual-capture payment flow — the same mechanism banks use for
-                            hotel holds. Here's what happens to your money at each stage.
+                            We use Stripe&apos;s manual-capture payment flow — the same mechanism banks use for
+                            hotel holds. Here&apos;s what happens to your money at each stage.
                         </p>
                     </div>
 
@@ -406,7 +406,7 @@ export default function HowItWorksPage() {
                             </h3>
                             <p className="text-xs text-amber-700 leading-relaxed">
                                 Open a dispute if the device is significantly different from the listing —
-                                wrong model, different IMEI, condition worse than graded, or device won't
+                                wrong model, different IMEI, condition worse than graded, or device won&apos;t
                                 power on. Provide photos and a clear description. Our team reviews every
                                 dispute within 24 hours and issues a decision. Disputes must be opened
                                 before your 5-day inspection window closes.
@@ -446,7 +446,7 @@ export default function HowItWorksPage() {
                         Every purchase is protected.
                     </h2>
                     <p className="text-teal-200 text-sm leading-relaxed mb-8 max-w-md mx-auto">
-                        Thousands of transactions processed. Zero escrow fraud. That's the Go2Hand guarantee.
+                        Thousands of transactions processed. Zero escrow fraud. That&apos;s the Go2Hand guarantee.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
                         <Link

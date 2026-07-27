@@ -378,7 +378,7 @@ function ReviewDrawer({
 
                         <p className="text-[11px] text-red-600 leading-relaxed">
                             The IMEI/Serial number was checked against stolen device databases and returned a
-                            "flagged" result. This may be a false positive from a mock API — verify against
+                            &quot;flagged&quot; result. This may be a false positive from a mock API — verify against
                             real GSMA records before removing.
                         </p>
                     </div>
@@ -488,7 +488,7 @@ function ReviewDrawer({
                                     <>
                                         <strong>Clear Flag:</strong> Sets <code>imei_status = &apos;clean&apos;</code> and
                                         marks the listing as <strong>is_verified = true</strong>. The listing
-                                        remains active and will display the "Verified" badge to buyers.
+                                        remains active and will display the &quot;Verified&quot; badge to buyers.
                                         Use this when you&apos;ve confirmed the flag was a false positive.
                                     </>
                                 )}
@@ -504,7 +504,7 @@ function ReviewDrawer({
                                     <>
                                         <strong>Escalate:</strong> Sets <code>status = &apos;pending_review&apos;</code>.
                                         Listing is hidden from buyers but preserved for deeper investigation.
-                                        It will appear in the "Pending Review" tab of the listings table.
+                                        It will appear in the &quot;Pending Review&quot; tab of the listings table.
                                         Useful when you need to contact the seller or run further checks.
                                     </>
                                 )}

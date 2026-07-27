@@ -136,7 +136,7 @@ export default function StepCondition({
                     Condition Grade <span className="text-red-400">*</span>
                 </h3>
                 <p className="text-xs text-gray-400 mb-4">
-                    Be honest — buyers can open a dispute if the device condition doesn't match.
+                    Be honest — buyers can open a dispute if the device condition doesn&apos;t match.
                     Accurate listings sell faster and get better reviews.
                 </p>
 

@@ -215,7 +215,7 @@ export default async function AdminOrdersPage() {
                         </p>
                         <p className="text-xs text-red-700 mt-0.5 leading-relaxed">
                             Disputed orders should be reviewed within 24 hours.
-                            Use the "Disputed" tab to filter to these orders, then
+                            Use the &quot;Disputed&quot; tab to filter to these orders, then
                             Force Complete or Force Refund based on your investigation.
                         </p>
                     </div>

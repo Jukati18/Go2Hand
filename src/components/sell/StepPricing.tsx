@@ -273,7 +273,7 @@ export default function StepPricing({ data, errors, patch }: StepPricingProps) {
             <section className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3.5">
                 <p className="text-xs text-gray-500 leading-relaxed">
                     By publishing this listing you confirm the device is yours to sell,
-                    the information is accurate, and you agree to Go2Hand's{' '}
+                    the information is accurate, and you agree to Go2Hand&apos;s{' '}
                     <a href="/seller-guidelines" className="text-teal-600 hover:underline">
                         Seller Guidelines
                     </a>{' '}

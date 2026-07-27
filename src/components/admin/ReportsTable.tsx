@@ -234,7 +234,7 @@ function ReportDrawer({
                                 </p>
                                 {report.details && (
                                     <p className="text-xs text-orange-700 leading-relaxed mt-1">
-                                        "{report.details}"
+                                        &quot;{report.details}&quot;
                                     </p>
                                 )}
                                 <p className="text-[10px] text-orange-500 mt-2 font-mono">

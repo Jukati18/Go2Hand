@@ -33,12 +33,10 @@ import {
     ShieldExclamationIcon,
     StarIcon,
     EyeIcon,
-    TagIcon,
     TrashIcon,
     ArrowTopRightOnSquareIcon,
     CheckCircleIcon,
     ExclamationTriangleIcon,
-    SparklesIcon,
     DevicePhoneMobileIcon,
     FunnelIcon,
 } from '@heroicons/react/24/outline'
@@ -708,7 +706,7 @@ export default function ListingsTable({ listings: initialListings }: { listings:
                         </span>
                         {' '}of{' '}
                         <span className="font-semibold text-gray-800">{filtered.length}</span> listings
-                        {search && <span className="text-gray-400"> matching "{search}"</span>}
+                        {search && <span className="text-gray-400"> matching &quot;{search}&quot;</span>}
                     </p>
                 </div>
 

@@ -257,7 +257,7 @@ export default async function AdminImeiReviewsPage() {
                             visible to buyers
                         </p>
                         <p className="text-xs text-red-600 mt-0.5 leading-relaxed">
-                            These devices passed our listing flow but their IMEI check returned "flagged".
+                            These devices passed our listing flow but their IMEI check returned &quot;flagged&quot;.
                             Buyers can still purchase them — review urgently.
                         </p>
                     </div>

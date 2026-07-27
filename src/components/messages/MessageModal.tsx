@@ -136,7 +136,7 @@ export default function MessageModal({
                         </div>
                         <h3 className="text-base font-bold text-gray-900 mb-1">Message sent!</h3>
                         <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-                            Your message has been sent to {sellerName}. You'll be notified when they reply.
+                            Your message has been sent to {sellerName}. You&apos;ll be notified when they reply.
                         </p>
                         <div className="flex flex-col gap-2 w-full">
                             <Link
