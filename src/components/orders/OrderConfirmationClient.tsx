@@ -7,7 +7,7 @@
 //   • Shows animated success burst on mount (buyer only, fresh orders)
 //   • Auto-refreshes order data every 30s to catch webhook upgrades
 //   • Renders: device card, price breakdown, countdown, next steps,
-//              seller/buyer card, action buttons, escrow timeline
+//               seller/buyer card, action buttons, escrow timeline
 //   • Adapts layout and content based on role + status
 //
 // Layout (mobile-first):
@@ -32,8 +32,8 @@ import {
 } from '@heroicons/react/24/outline'
 import { CheckCircleIcon as CheckSolid } from '@heroicons/react/24/solid'
 import type { Order, OrderStatus } from '@/types/order'
-import { getOrderById, formatOrderAmount, getInspectionDaysRemaining } from '@/services/orderService'
-import { actionMarkShipped, actionMarkReceived, actionCompleteOrder, actionDisputeOrder } from '@/actions/order'
+import { getOrderById, formatOrderAmount } from '@/services/orderService'
+import { actionMarkReceived, actionCompleteOrder } from '@/actions/order'
 import { STATUS_LABELS, STATUS_PILL_STYLES } from '@/components/orders/OrderStatusTracker'
 import ConfirmationSuccessBurst from './ConfirmationSuccessBurst'
 import InspectionCountdown from './InspectionCountdown'
@@ -77,6 +77,83 @@ function PriceLine({
     )
 }
 
+// ── Action Buttons Component ───────────────────────────────────────
+function ActionButtons({
+    role,
+    status,
+    loading,
+    onMarkShipped,
+    onMarkReceived,
+    onComplete,
+    onDispute,
+}: {
+    role: 'buyer' | 'seller'
+    status: OrderStatus
+    loading: boolean
+    onMarkShipped: () => void
+    onMarkReceived: () => void
+    onComplete: () => void
+    onDispute: () => void
+}) {
+    if (role === 'seller' && status === 'paid') {
+        return (
+            <button
+                onClick={onMarkShipped}
+                className="w-full h-12 bg-teal-800 hover:bg-teal-700 text-white font-bold
+                    rounded-xl text-sm flex items-center justify-center gap-2
+                    transition-all hover:-translate-y-0.5 hover:shadow-md"
+            >
+                <TruckIcon className="w-4 h-4" />
+                Mark as Shipped
+            </button>
+        )
+    }
+
+    if (role === 'buyer' && status === 'shipped') {
+        return (
+            <button
+                onClick={onMarkReceived}
+                disabled={loading}
+                className="w-full h-12 bg-teal-800 hover:bg-teal-700 text-white font-bold
+                    rounded-xl text-sm flex items-center justify-center gap-2
+                    transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
+            >
+                <CheckCircleIcon className="w-4 h-4" />
+                {loading ? 'Updating…' : 'I Received the Device'}
+            </button>
+        )
+    }
+
+    if (role === 'buyer' && status === 'in_inspection') {
+        return (
+            <div className="flex flex-col gap-2">
+                <button
+                    onClick={onComplete}
+                    disabled={loading}
+                    className="w-full h-12 bg-teal-800 hover:bg-teal-700 text-white font-bold
+                        rounded-xl text-sm flex items-center justify-center gap-2
+                        transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
+                >
+                    <CheckSolid className="w-4 h-4" />
+                    {loading ? 'Processing…' : 'Approve & Release Payment'}
+                </button>
+                <button
+                    onClick={onDispute}
+                    disabled={loading}
+                    className="w-full h-11 border-2 border-red-200 text-red-600 font-semibold
+                        rounded-xl text-sm flex items-center justify-center gap-2
+                        hover:bg-red-50 transition-colors"
+                >
+                    <ExclamationTriangleIcon className="w-4 h-4" />
+                    Raise a Dispute
+                </button>
+            </div>
+        )
+    }
+
+    return null
+}
+
 // ── Main component ─────────────────────────────────────────────────
 interface OrderConfirmationClientProps {
     order: Order
@@ -87,7 +164,6 @@ interface OrderConfirmationClientProps {
 export default function OrderConfirmationClient({
     order: initialOrder,
     role,
-    userId,
 }: OrderConfirmationClientProps) {
     const router = useRouter()
     const [order, setOrder] = useState<Order>(initialOrder)
@@ -160,67 +236,6 @@ export default function OrderConfirmationClient({
     async function handleDispute() {
         // Route to order detail for the full dispute modal
         router.push(`/orders/${order.id}`)
-    }
-
-    // ── Status-dependent action buttons ───────────────────────────
-    const ActionButtons = () => {
-        if (role === 'seller' && order.status === 'paid') {
-            return (
-                <button
-                    onClick={handleMarkShipped}
-                    className="w-full h-12 bg-teal-800 hover:bg-teal-700 text-white font-bold
-                        rounded-xl text-sm flex items-center justify-center gap-2
-                        transition-all hover:-translate-y-0.5 hover:shadow-md"
-                >
-                    <TruckIcon className="w-4 h-4" />
-                    Mark as Shipped
-                </button>
-            )
-        }
-
-        if (role === 'buyer' && order.status === 'shipped') {
-            return (
-                <button
-                    onClick={handleMarkReceived}
-                    disabled={loading}
-                    className="w-full h-12 bg-teal-800 hover:bg-teal-700 text-white font-bold
-                        rounded-xl text-sm flex items-center justify-center gap-2
-                        transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
-                >
-                    <CheckCircleIcon className="w-4 h-4" />
-                    {loading ? 'Updating…' : 'I Received the Device'}
-                </button>
-            )
-        }
-
-        if (role === 'buyer' && order.status === 'in_inspection') {
-            return (
-                <div className="flex flex-col gap-2">
-                    <button
-                        onClick={handleComplete}
-                        disabled={loading}
-                        className="w-full h-12 bg-teal-800 hover:bg-teal-700 text-white font-bold
-                            rounded-xl text-sm flex items-center justify-center gap-2
-                            transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
-                    >
-                        <CheckSolid className="w-4 h-4" />
-                        {loading ? 'Processing…' : 'Approve & Release Payment'}
-                    </button>
-                    <button
-                        onClick={handleDispute}
-                        disabled={loading}
-                        className="w-full h-11 border-2 border-red-200 text-red-600 font-semibold
-                            rounded-xl text-sm flex items-center justify-center gap-2
-                            hover:bg-red-50 transition-colors"
-                    >
-                        <ExclamationTriangleIcon className="w-4 h-4" />
-                        Raise a Dispute
-                    </button>
-                </div>
-            )
-        }
-
-        return null
     }
 
     return (
@@ -327,13 +342,26 @@ export default function OrderConfirmationClient({
                     />
 
                     {/* ── Action buttons ── */}
-                    {ActionButtons() && (
+                    {(() => {
+                        const hasActions =
+                            (role === 'seller' && order.status === 'paid') ||
+                            (role === 'buyer' && ['shipped', 'in_inspection'].includes(order.status))
+                        return hasActions
+                    })() && (
                         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5
                             animate-[fadeUp_.5s_ease_both]">
                             <h3 className="text-sm font-bold text-gray-900 mb-4">
                                 Action Required
                             </h3>
-                            <ActionButtons />
+                            <ActionButtons
+                                role={role}
+                                status={order.status as OrderStatus}
+                                loading={loading}
+                                onMarkShipped={handleMarkShipped}
+                                onMarkReceived={handleMarkReceived}
+                                onComplete={handleComplete}
+                                onDispute={handleDispute}
+                            />
                         </div>
                     )}
 
