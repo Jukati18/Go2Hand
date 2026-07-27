@@ -95,11 +95,11 @@ export interface AnalyticsData {
 // ── Color palette for category pie slices ─────────────────────────
 const CATEGORY_COLORS: Record<string, string> = {
     smartphones: '#0f766e',   // teal-700
-    laptops:     '#0891b2',   // cyan-600
-    tablets:     '#7c3aed',   // violet-600
-    watches:     '#d97706',   // amber-600
-    audio:       '#059669',   // emerald-600
-    desktops:    '#dc2626',   // red-600
+    laptops: '#0891b2',   // cyan-600
+    tablets: '#7c3aed',   // violet-600
+    watches: '#d97706',   // amber-600
+    audio: '#059669',   // emerald-600
+    desktops: '#dc2626',   // red-600
 }
 
 // ── Build date range helpers ──────────────────────────────────────
@@ -122,7 +122,7 @@ async function createSupa() {
     return createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+        { cookies: { getAll: () => cookieStore.getAll(), setAll: () => { } } }
     )
 }
 
@@ -138,10 +138,10 @@ function deltaPct(current: number, previous: number): number {
 async function fetchAnalytics(): Promise<AnalyticsData> {
     const supabase = await createSupa()
 
-    const thirtyDaysAgo  = daysAgo(30)
-    const sevenDaysAgo   = daysAgo(7)
+    const thirtyDaysAgo = daysAgo(30)
+    const sevenDaysAgo = daysAgo(7)
     const fourteenDaysAgo = daysAgo(14)
-    const dates30        = lastNDates(30)
+    const dates30 = lastNDates(30)
 
     // ── Run all queries in parallel for speed ─────────────────────
     const [
@@ -283,9 +283,9 @@ async function fetchAnalytics(): Promise<AnalyticsData> {
 
     // ── 1. KPI — GMV & revenue ────────────────────────────────────
     const completedOrders = completedOrdersRes.data ?? []
-    const totalGMV        = completedOrders.reduce((s, o) => s + Number(o.amount ?? 0), 0)
-    const totalRevenue    = completedOrders.reduce((s, o) => s + Number(o.platform_fee ?? 0), 0)
-    const avgOrderValue   = completedOrders.length > 0 ? totalGMV / completedOrders.length : 0
+    const totalGMV = completedOrders.reduce((s, o) => s + Number(o.amount ?? 0), 0)
+    const totalRevenue = completedOrders.reduce((s, o) => s + Number(o.platform_fee ?? 0), 0)
+    const avgOrderValue = completedOrders.length > 0 ? totalGMV / completedOrders.length : 0
 
     // Revenue this week vs last week (from completed orders)
     const revThisWeek = completedOrders
@@ -296,12 +296,12 @@ async function fetchAnalytics(): Promise<AnalyticsData> {
         .reduce((s, o) => s + Number(o.platform_fee ?? 0), 0)
 
     // ── 2. KPI deltas ─────────────────────────────────────────────
-    const totalOrders    = allOrdersRes.data?.length ?? 0
-    const totalUsers     = totalUsersRes.count ?? 0
+    const totalOrders = allOrdersRes.data?.length ?? 0
+    const totalUsers = totalUsersRes.count ?? 0
     const ordersThisWeek = ordersThisWeekRes.count ?? 0
     const ordersLastWeek = ordersLastWeekRes.count ?? 0
-    const usersThisWeek  = usersThisWeekRes.count ?? 0
-    const usersLastWeek  = usersLastWeekRes.count ?? 0
+    const usersThisWeek = usersThisWeekRes.count ?? 0
+    const usersLastWeek = usersLastWeekRes.count ?? 0
 
     // ── 3. Revenue daily series ───────────────────────────────────
     // Group completed orders by date
@@ -365,25 +365,25 @@ async function fetchAnalytics(): Promise<AnalyticsData> {
     // ── 7. Order funnel ───────────────────────────────────────────
     const allOrders = allOrdersRes.data ?? []
     const funnelCounts = {
-        paid:          allOrders.filter(o => ['paid', 'shipped', 'in_inspection', 'completed'].includes(o.status)).length,
-        shipped:       allOrders.filter(o => ['shipped', 'in_inspection', 'completed'].includes(o.status)).length,
+        paid: allOrders.filter(o => ['paid', 'shipped', 'in_inspection', 'completed'].includes(o.status)).length,
+        shipped: allOrders.filter(o => ['shipped', 'in_inspection', 'completed'].includes(o.status)).length,
         in_inspection: allOrders.filter(o => ['in_inspection', 'completed'].includes(o.status)).length,
-        completed:     allOrders.filter(o => o.status === 'completed').length,
+        completed: allOrders.filter(o => o.status === 'completed').length,
     }
     const base = funnelCounts.paid || 1
     const funnel: FunnelStep[] = [
-        { label: 'Payment Secured',    count: funnelCounts.paid,          pct: 100 },
-        { label: 'Shipped',            count: funnelCounts.shipped,        pct: Math.round((funnelCounts.shipped / base) * 100) },
-        { label: 'Inspection Started', count: funnelCounts.in_inspection,  pct: Math.round((funnelCounts.in_inspection / base) * 100) },
-        { label: 'Completed',          count: funnelCounts.completed,      pct: Math.round((funnelCounts.completed / base) * 100) },
+        { label: 'Payment Secured', count: funnelCounts.paid, pct: 100 },
+        { label: 'Shipped', count: funnelCounts.shipped, pct: Math.round((funnelCounts.shipped / base) * 100) },
+        { label: 'Inspection Started', count: funnelCounts.in_inspection, pct: Math.round((funnelCounts.in_inspection / base) * 100) },
+        { label: 'Completed', count: funnelCounts.completed, pct: Math.round((funnelCounts.completed / base) * 100) },
     ]
 
     // ── 8. IMEI stats ─────────────────────────────────────────────
-    const imeiClean    = imeiCleanRes.count ?? 0
-    const imeiFlagged  = imeiFlaggedRes.count ?? 0
-    const imeiStats    = {
-        clean:      imeiClean,
-        flagged:    imeiFlagged,
+    const imeiClean = imeiCleanRes.count ?? 0
+    const imeiFlagged = imeiFlaggedRes.count ?? 0
+    const imeiStats = {
+        clean: imeiClean,
+        flagged: imeiFlagged,
         unverified: 0, // would need products table join; keep 0 for now
     }
 
@@ -398,7 +398,7 @@ async function fetchAnalytics(): Promise<AnalyticsData> {
     for (const o of topSellersRes.data ?? []) {
         const rawSeller = (o as unknown as { seller?: SellerRow | SellerRow[] }).seller
         const s = Array.isArray(rawSeller) ? rawSeller[0] : rawSeller
-        
+
         if (!s?.id) continue
         const existing = sellerMap.get(s.id)
         const payout = Number(o.amount ?? 0) - Number(o.platform_fee ?? 0)
@@ -413,27 +413,48 @@ async function fetchAnalytics(): Promise<AnalyticsData> {
         .sort((a, b) => b.earnings - a.earnings)
         .slice(0, 8)
         .map(({ seller, totalSales, earnings }) => ({
-            id:          seller.id,
-            username:    seller.username ?? '—',
-            fullName:    seller.full_name ?? null,
-            avatarUrl:   seller.avatar_url ?? null,
+            id: seller.id,
+            username: seller.username ?? '—',
+            fullName: seller.full_name ?? null,
+            avatarUrl: seller.avatar_url ?? null,
             totalSales,
-            earnings:    Math.round(earnings * 100) / 100,
-            rating:      Number(seller.seller_rating ?? 0),
-            isVerified:  seller.verified === 'verified',
+            earnings: Math.round(earnings * 100) / 100,
+            rating: Number(seller.seller_rating ?? 0),
+            isVerified: seller.verified === 'verified',
         }))
 
     // ── 10. Recent orders ─────────────────────────────────────────
-    const recentOrders: RecentOrder[] = (recentOrdersRes.data ?? []).map((o: any) => ({
-        id:             o.id,
-        status:         o.status,
-        amount:         Number(o.amount ?? 0),
-        createdAt:      o.created_at,
-        buyerUsername:  o.buyer?.username ?? null,
-        sellerUsername: o.seller?.username ?? null,
-        productTitle:   o.product?.title ?? null,
-        productImage:   o.product?.images?.[0] ?? null,
-    }))
+    const rawRecentOrders = (recentOrdersRes.data as unknown[]) ?? []
+
+    const recentOrders: RecentOrder[] = rawRecentOrders.map((item) => {
+        // 1. Define the shape, allowing for both objects and arrays
+        const o = item as {
+            id: string
+            status: string
+            amount: number | null
+            created_at: string
+            buyer?: { username?: string }[] | { username?: string } | null
+            seller?: { username?: string }[] | { username?: string } | null
+            product?: { title?: string; images?: string[] }[] | { title?: string; images?: string[] } | null
+        }
+
+        // 2. Safely extract the first item if Supabase returned an array
+        const b = Array.isArray(o.buyer) ? o.buyer[0] : o.buyer
+        const s = Array.isArray(o.seller) ? o.seller[0] : o.seller
+        const p = Array.isArray(o.product) ? o.product[0] : o.product
+
+        // 3. Map to the final RecentOrder shape
+        return {
+            id: o.id,
+            status: o.status,
+            amount: Number(o.amount ?? 0),
+            createdAt: o.created_at,
+            buyerUsername: b?.username ?? null,
+            sellerUsername: s?.username ?? null,
+            productTitle: p?.title ?? null,
+            productImage: p?.images?.[0] ?? null,
+        }
+    })
 
     return {
         kpi: {
@@ -443,9 +464,9 @@ async function fetchAnalytics(): Promise<AnalyticsData> {
             totalUsers,
             activeListings,
             avgOrderValue,
-            gMVDeltaPct:     deltaPct(revThisWeek, revLastWeek),   // proxy using revenue (same trend)
-            ordersDeltaPct:  deltaPct(ordersThisWeek, ordersLastWeek),
-            usersDeltaPct:   deltaPct(usersThisWeek, usersLastWeek),
+            gMVDeltaPct: deltaPct(revThisWeek, revLastWeek),   // proxy using revenue (same trend)
+            ordersDeltaPct: deltaPct(ordersThisWeek, ordersLastWeek),
+            usersDeltaPct: deltaPct(usersThisWeek, usersLastWeek),
             revenueDeltaPct: deltaPct(revThisWeek, revLastWeek),
         },
         revenueSeries,

@@ -200,14 +200,14 @@ export default async function DeviceDetailRoute({ params }: Props) {
             <Script
                 id="jsonld-product"
                 type="application/ld+json"
-                // eslint-disable-next-line react/no-danger
+                 
                 dangerouslySetInnerHTML={{ __html: productJsonLd }}
                 strategy="beforeInteractive"
             />
             <Script
                 id="jsonld-breadcrumb"
                 type="application/ld+json"
-                // eslint-disable-next-line react/no-danger
+                 
                 dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd }}
                 strategy="beforeInteractive"
             />

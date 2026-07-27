@@ -95,7 +95,7 @@ export default function WatchlistPage() {
     }, [confirming, entries]);
 
     // ── Sort entries client-side ───────────────────────────────────
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const sorted = [...entries].sort((a, b): number => {
         const pa = a.product;
         const pb = b.product;

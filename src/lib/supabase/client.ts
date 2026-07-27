@@ -112,7 +112,7 @@ async function selfHealingLock<R>(
 
 // ── Augment the global namespace so TypeScript is happy with our cache key.
 declare global {
-    // eslint-disable-next-line no-var
+     
     var __go2hand_supabase_client__: SupabaseClient | undefined;
 }
 

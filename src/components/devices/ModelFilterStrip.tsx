@@ -1,18 +1,4 @@
 'use client'
-// src/components/devices/ModelFilterStrip.tsx
-// ─────────────────────────────────────────────────────────────────
-// Shows model quick-filter chips when a search query matches known
-// device models. Rendered at the top of the /devices results page.
-//
-// Example: User searches "iPhone 15"
-//   → Strip shows: [iPhone 15] [iPhone 15 Pro] [iPhone 15 Plus]
-//   → Each chip links to /categories/smartphones/apple?model=...
-//
-// The strip is invisible when:
-//   • No query
-//   • No matching models
-//   • Still loading (renders skeleton)
-// ─────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -25,26 +11,52 @@ interface ModelFilterStripProps {
 }
 
 export default function ModelFilterStrip({ query }: ModelFilterStripProps) {
-    const [models,  setModels]  = useState<ModelSuggestion[]>([])
+    const [models, setModels] = useState<ModelSuggestion[]>([])
     const [loading, setLoading] = useState(false)
     const [fetched, setFetched] = useState('')
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        if (!query || query.trim().length < 2) {
-            setModels([])
-            setFetched('')
-            return
-        }
-        // Don't re-fetch for the same query
-        if (query === fetched) return
+        const cleanQuery = query?.trim() || ''
 
-        setLoading(true)
-        getModelSuggestions(query, 6).then(m => {
-            setModels(m)
-            setFetched(query)
-            setLoading(false)
-        })
+        if (cleanQuery.length < 2) {
+            // 1. Push state resets to the next tick to avoid synchronous cascading renders
+            const timer = setTimeout(() => {
+                setModels([])
+                setFetched('')
+            }, 0)
+            return () => clearTimeout(timer)
+        }
+
+        // Don't re-fetch for the same query
+        if (cleanQuery === fetched) return
+
+        // 2. Track if the component is still mounted/query hasn't changed
+        let active = true
+
+        // 3. Wrap fetching in an async function to keep the effect body clean and pure
+        const fetchModels = async () => {
+            setLoading(true)
+
+            try {
+                const m = await getModelSuggestions(cleanQuery, 6)
+                // Only update state if this is still the active search query
+                if (active) {
+                    setModels(m)
+                    setFetched(cleanQuery)
+                }
+            } finally {
+                if (active) {
+                    setLoading(false)
+                }
+            }
+        }
+
+        fetchModels()
+
+        // 4. Cleanup function cancels state updates if the query changes quickly
+        return () => {
+            active = false
+        }
     }, [query, fetched])
 
     // Don't render anything if no query or no results (and not loading)

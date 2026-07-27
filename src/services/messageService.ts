@@ -3,7 +3,22 @@
 
 import { createClient } from '@/lib/supabase/server'
 
-interface ConversationRow {
+// ── Raw interfaces to handle Supabase's array inference safely ────
+interface RawUser {
+    id: string
+    username: string | null
+    full_name: string | null
+    avatar_url: string | null
+}
+
+interface RawProduct {
+    id: string
+    title: string
+    images: string[] | null
+    price: number
+}
+
+interface RawConvRow {
     id: string
     buyer_id: string
     seller_id: string
@@ -11,11 +26,12 @@ interface ConversationRow {
     last_message: string | null
     last_message_at: string | null
     created_at: string
-    buyer: { id: string; username: string | null; full_name: string | null; avatar_url: string | null } | null
-    seller: { id: string; username: string | null; full_name: string | null; avatar_url: string | null } | null
-    product: { id: string; title: string; images: string[] | null; price: number } | null
+    buyer?: RawUser | RawUser[] | null
+    seller?: RawUser | RawUser[] | null
+    product?: RawProduct | RawProduct[] | null
 }
 
+// ── Exported interfaces ───────────────────────────────────────────
 export interface Conversation {
     id: string
     buyerId: string
@@ -89,14 +105,23 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
         }
     }
 
-    return data.map((row: any) => {
+    // Safely map over the data, handling Supabase's array inference
+    return (data as unknown[]).map((item) => {
+        const row = item as RawConvRow
+        
+        const rawBuyer = Array.isArray(row.buyer) ? row.buyer[0] : row.buyer
+        const rawSeller = Array.isArray(row.seller) ? row.seller[0] : row.seller
+        const rawProduct = Array.isArray(row.product) ? row.product[0] : row.product
+
         const isBuyer = row.buyer_id === userId
-        const otherUserRaw = isBuyer ? row.seller : row.buyer
+        const otherUserRaw = isBuyer ? rawSeller : rawBuyer
+        
         const otherUser = {
             id: otherUserRaw?.id ?? '',
             username: otherUserRaw?.username ?? otherUserRaw?.full_name ?? 'Unknown',
             avatarUrl: otherUserRaw?.avatar_url ?? null,
         }
+        
         return {
             id: row.id,
             buyerId: row.buyer_id,
@@ -106,12 +131,12 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
             lastMessageAt: row.last_message_at ?? null,
             createdAt: row.created_at,
             otherUser,
-            product: row.product
+            product: rawProduct
                 ? {
-                    id: row.product.id,
-                    title: row.product.title,
-                    images: row.product.images ?? [],
-                    price: Number(row.product.price),
+                    id: rawProduct.id,
+                    title: rawProduct.title,
+                    images: rawProduct.images ?? [],
+                    price: Number(rawProduct.price),
                 }
                 : null,
             unreadCount: unreadMap[row.id] ?? 0,
@@ -157,34 +182,35 @@ export async function getMessages(
         return { messages: [], conversation: null }
     }
 
-    const isBuyer = conv.buyer_id === userId
-    const rawBuyer: any = conv.buyer
-    const rawSeller: any = conv.seller
-    const rawProduct: any = conv.product
+    // Bypass strict Supabase inferences safely using our RawConvRow interface
+    const rawConv = conv as unknown as RawConvRow
+    
+    const isBuyer = rawConv.buyer_id === userId
+    const rawBuyer = Array.isArray(rawConv.buyer) ? rawConv.buyer[0] : rawConv.buyer
+    const rawSeller = Array.isArray(rawConv.seller) ? rawConv.seller[0] : rawConv.seller
+    const rawProduct = Array.isArray(rawConv.product) ? rawConv.product[0] : rawConv.product
+    
+    const otherUserRaw = isBuyer ? rawSeller : rawBuyer
 
-    const actualBuyer = Array.isArray(rawBuyer) ? rawBuyer[0] : rawBuyer
-    const actualSeller = Array.isArray(rawSeller) ? rawSeller[0] : rawSeller
-    const actualProduct = Array.isArray(rawProduct) ? rawProduct[0] : rawProduct
-    const otherUserRaw: ConversationRow['buyer'] | ConversationRow['seller'] = isBuyer ? actualSeller : actualBuyer
     const conversation: Conversation = {
-        id: conv.id,
-        buyerId: conv.buyer_id,
-        sellerId: conv.seller_id,
-        productId: conv.product_id,
-        lastMessage: conv.last_message ?? null,
-        lastMessageAt: conv.last_message_at ?? null,
-        createdAt: conv.created_at,
+        id: rawConv.id,
+        buyerId: rawConv.buyer_id,
+        sellerId: rawConv.seller_id,
+        productId: rawConv.product_id,
+        lastMessage: rawConv.last_message ?? null,
+        lastMessageAt: rawConv.last_message_at ?? null,
+        createdAt: rawConv.created_at,
         otherUser: {
             id: otherUserRaw?.id ?? '',
             username: otherUserRaw?.username ?? otherUserRaw?.full_name ?? 'Unknown',
             avatarUrl: otherUserRaw?.avatar_url ?? null,
         },
-        product: actualProduct
+        product: rawProduct
             ? {
-                id: actualProduct.id,
-                title: actualProduct.title,
-                images: actualProduct.images ?? [],
-                price: Number(actualProduct.price),
+                id: rawProduct.id,
+                title: rawProduct.title,
+                images: rawProduct.images ?? [],
+                price: Number(rawProduct.price),
             }
             : null,
         unreadCount: 0,
