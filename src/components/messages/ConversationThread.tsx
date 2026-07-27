@@ -125,8 +125,6 @@ export default function ConversationThread({
         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     }
 
-    let lastDate = ''
-
     return (
         <div className="max-w-[760px] mx-auto px-4 sm:px-6 py-6 flex flex-col"
             style={{ height: 'calc(100vh - 130px)' }}>
@@ -200,11 +198,13 @@ export default function ConversationThread({
                     </div>
                 )}
 
-                {messages.map((msg) => {
+                {messages.map((msg, index) => {
                     const isMe = msg.senderId === currentUserId
                     const dateLabel = formatDate(msg.createdAt)
-                    const showDateSep = dateLabel !== lastDate
-                    lastDate = dateLabel
+                    
+                    // Compare with previous message to decide if we show the date separator
+                    const prevMsg = messages[index - 1]
+                    const showDateSep = index === 0 || formatDate(prevMsg.createdAt) !== dateLabel
 
                     return (
                         <div key={msg.id}>
