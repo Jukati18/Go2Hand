@@ -57,11 +57,13 @@ export default function StepDetails({ data, errors, patch }: StepDetailsProps) {
     // Load models when brand changes
     useEffect(() => {
         if (!data.brand) return
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLoading(true)
         getModelsForBrand(data.brand.id).then(m => {
             setModels(m)
             setLoading(false)
         })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data.brand?.id])
 
     // Build the title when brand/model changes

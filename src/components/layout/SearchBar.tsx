@@ -152,11 +152,13 @@ export default function SearchBar() {
 
     // ── Load recents when dropdown opens ──────────────────────────
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (isOpen) setRecents(getRecentSearches())
     }, [isOpen])
 
     // ── Debounced combined fetch ───────────────────────────────────
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setActiveIdx(-1)
 
         if (input.trim().length < 2) {

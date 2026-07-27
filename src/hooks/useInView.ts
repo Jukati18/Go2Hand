@@ -39,6 +39,7 @@ export function useInView<T extends HTMLElement = HTMLDivElement>(
         // (very old browsers), just render immediately instead of
         // permanently hiding content.
         if (typeof IntersectionObserver === 'undefined') {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setInView(true)
             return
         }

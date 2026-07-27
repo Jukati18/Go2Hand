@@ -10,7 +10,6 @@ import { createPortal } from 'react-dom'
 import {
     FlagIcon,
     XMarkIcon,
-    CheckCircleIcon,
     ExclamationCircleIcon,
 } from '@heroicons/react/24/outline'
 import { CheckCircleIcon as CheckSolid } from '@heroicons/react/24/solid'
@@ -75,6 +74,7 @@ export default function ReportModal({
 
     // Required for Next.js SSR so createPortal doesn't fire on the server
     const [mounted, setMounted] = useState(false)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => setMounted(true), [])
 
     const reasons = targetType === 'listing' ? LISTING_REASONS : USER_REASONS

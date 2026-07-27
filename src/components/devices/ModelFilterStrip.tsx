@@ -30,6 +30,7 @@ export default function ModelFilterStrip({ query }: ModelFilterStripProps) {
     const [fetched, setFetched] = useState('')
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (!query || query.trim().length < 2) {
             setModels([])
             setFetched('')

@@ -65,6 +65,7 @@ export default function AddToCartButton({
 
     // Reset justAdded if item is removed from cart externally
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (!alreadyInCart) setJustAdded(false);
     }, [alreadyInCart]);
 

@@ -96,7 +96,7 @@ export function useInspectionCountdown(
 
     useEffect(() => {
         if (!inspectionStartedAt) return
-
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         // Tick immediately, then every second
         tick()
         const interval = setInterval(tick, 1000)

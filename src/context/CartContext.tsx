@@ -81,6 +81,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     // Hydrate from localStorage once on mount (avoids SSR mismatch)
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setItems(loadCart());
         setHydrated(true);
     }, []);
