@@ -3,6 +3,19 @@
 
 import { createClient } from '@/lib/supabase/server'
 
+interface ConversationRow {
+    id: string
+    buyer_id: string
+    seller_id: string
+    product_id: string
+    last_message: string | null
+    last_message_at: string | null
+    created_at: string
+    buyer: { id: string; username: string | null; full_name: string | null; avatar_url: string | null } | null
+    seller: { id: string; username: string | null; full_name: string | null; avatar_url: string | null } | null
+    product: { id: string; title: string; images: string[] | null; price: number } | null
+}
+
 export interface Conversation {
     id: string
     buyerId: string
@@ -145,7 +158,14 @@ export async function getMessages(
     }
 
     const isBuyer = conv.buyer_id === userId
-    const otherUserRaw: any = isBuyer ? conv.seller : conv.buyer
+    const rawBuyer: any = conv.buyer
+    const rawSeller: any = conv.seller
+    const rawProduct: any = conv.product
+
+    const actualBuyer = Array.isArray(rawBuyer) ? rawBuyer[0] : rawBuyer
+    const actualSeller = Array.isArray(rawSeller) ? rawSeller[0] : rawSeller
+    const actualProduct = Array.isArray(rawProduct) ? rawProduct[0] : rawProduct
+    const otherUserRaw: ConversationRow['buyer'] | ConversationRow['seller'] = isBuyer ? actualSeller : actualBuyer
     const conversation: Conversation = {
         id: conv.id,
         buyerId: conv.buyer_id,
@@ -159,12 +179,12 @@ export async function getMessages(
             username: otherUserRaw?.username ?? otherUserRaw?.full_name ?? 'Unknown',
             avatarUrl: otherUserRaw?.avatar_url ?? null,
         },
-        product: (conv as any).product
+        product: actualProduct
             ? {
-                id: (conv as any).product.id,
-                title: (conv as any).product.title,
-                images: (conv as any).product.images ?? [],
-                price: Number((conv as any).product.price),
+                id: actualProduct.id,
+                title: actualProduct.title,
+                images: actualProduct.images ?? [],
+                price: Number(actualProduct.price),
             }
             : null,
         unreadCount: 0,

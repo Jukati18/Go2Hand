@@ -49,7 +49,7 @@ export async function actionAdminUpdateUser(
         } = await supabase.auth.getUser()
 
         if (authError || !user) {
-            return { success: false, error: 'Unauthorized: Vui lòng đăng nhập lại.' }
+            return { success: false, error: 'Unauthorized: Please log in again.' }
         }
 
         const { data: caller } = await supabase
@@ -61,12 +61,12 @@ export async function actionAdminUpdateUser(
         if (caller?.role !== 'admin') {
             return {
                 success: false,
-                error: 'Forbidden: Bạn không có quyền thực hiện hành động này.',
+                error: 'Forbidden: You do not have permission to perform this action.',
             }
         }
 
-        // ── 2. Sanitize payload (chỉ update các DB columns hợp lệ) ──
-        const updateData: Record<string, any> = {}
+        // ── 2. Sanitize payload ──
+        const updateData: Record<string, string | null> = {}
         if (payload.role !== undefined) updateData.role = payload.role
         if (payload.verified !== undefined) updateData.verified = payload.verified
 
@@ -85,13 +85,14 @@ export async function actionAdminUpdateUser(
             return { success: false, error: updateError.message }
         }
 
-        // ── 4. Revalidate cache để Next.js cập nhật lại UI table ──
+        // ── 4. Revalidate cache Next.js update UI table ──
         revalidatePath('/admin/users')
         revalidatePath('/admin')
 
         return { success: true }
-    } catch (err: any) {
-        console.error('[adminUsers] unexpected error:', err?.message || err)
-        return { success: false, error: 'Đã xảy ra lỗi hệ thống.' }
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        console.error('[adminUsers] unexpected error:', message)
+        return { success: false, error: message }
     }
 }

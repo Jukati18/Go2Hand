@@ -39,7 +39,7 @@ export async function uploadProductImage(
     const ext = file.name.split('.').pop() || 'jpg'
     const path = `products/${productId}/${index}.${ext}`
 
-    const { error } = await withTimeout<{ data: any; error: any }>(
+    const { error } = await withTimeout<{ data: unknown; error: { message: string } | null }>(
         supabase.storage.from(BUCKET).upload(path, file, { upsert: true, contentType: file.type }),
         UPLOAD_TIMEOUT_MS,
         `Photo ${index + 1} upload`
@@ -58,7 +58,7 @@ export async function uploadAvatar(file: File, userId: string): Promise<string> 
     const ext = file.name.split('.').pop() || 'jpg'
     const path = `avatars/${userId}.${ext}`
 
-    const { error } = await withTimeout<{ data: any; error: any }>(
+    const { error } = await withTimeout<{ data: unknown; error: { message: string } | null }>(
         supabase.storage.from('avatars').upload(path, file, { upsert: true }),
         UPLOAD_TIMEOUT_MS,
         'Avatar upload'

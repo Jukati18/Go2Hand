@@ -342,9 +342,8 @@ async function fetchAnalytics(): Promise<AnalyticsData> {
 
     // ── 6. Active listings by category ───────────────────────────
     const catCounts = new Map<string, { name: string; slug: string; count: number }>()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const row of listingsByCatRes.data ?? []) {
-        const cat = (row as any).category
+        const cat = (row as { category?: { name?: string; slug?: string } }).category
         if (!cat?.slug) continue
         const existing = catCounts.get(cat.slug)
         if (existing) {
@@ -382,7 +381,6 @@ async function fetchAnalytics(): Promise<AnalyticsData> {
     // ── 8. IMEI stats ─────────────────────────────────────────────
     const imeiClean    = imeiCleanRes.count ?? 0
     const imeiFlagged  = imeiFlaggedRes.count ?? 0
-    const imeiTotal    = imeiClean + imeiFlagged
     const imeiStats    = {
         clean:      imeiClean,
         flagged:    imeiFlagged,
@@ -391,11 +389,16 @@ async function fetchAnalytics(): Promise<AnalyticsData> {
 
     // ── 9. Top sellers ────────────────────────────────────────────
     // Aggregate by seller_id from completed orders
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sellerMap = new Map<string, { seller: any; totalSales: number; earnings: number }>()
+    interface SellerRow {
+        id: string; username: string; full_name: string | null
+        avatar_url: string | null; seller_rating: number | null
+        total_sales: number | null; verified: string | null
+    }
+    const sellerMap = new Map<string, { seller: SellerRow; totalSales: number; earnings: number }>()
     for (const o of topSellersRes.data ?? []) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const s = (o as any).seller
+        const rawSeller = (o as unknown as { seller?: SellerRow | SellerRow[] }).seller
+        const s = Array.isArray(rawSeller) ? rawSeller[0] : rawSeller
+        
         if (!s?.id) continue
         const existing = sellerMap.get(s.id)
         const payout = Number(o.amount ?? 0) - Number(o.platform_fee ?? 0)

@@ -1,5 +1,5 @@
 'use server'
-
+//src/actions/watchlist.ts
 // ============================================
 // WATCHLIST SERVER ACTIONS
 // Table: watchlist (id, user_id, product_id, created_at)
@@ -123,7 +123,7 @@ export async function getWatchlist() {
     }
 
     return (data ?? []).filter(
-        (entry) => (entry.product as any)?.status === 'active'
+        (entry) => (entry.product as { status?: string } | null)?.status === 'active'
     )
 }
 

@@ -3,7 +3,7 @@
 // src/components/messages/ConversationThread.tsx
 // Real-time conversation view with Supabase subscription for live updates.
 
-import { useState, useEffect, useRef, useCallback, FormEvent } from 'react'
+import { useState, useEffect, useRef, useCallback, SyntheticEvent } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
@@ -56,7 +56,11 @@ export default function ConversationThread({
                     filter: `conversation_id=eq.${conversation.id}`,
                 },
                 (payload) => {
-                    const newMsg = payload.new as any
+                    const newMsg = payload.new as {
+                        id: string; conversation_id: string; sender_id: string
+                        content: string; created_at: string; read_at: string | null
+                    }
+
                     // Only add if not already in list (prevents duplicate from optimistic UI)
                     setMessages(prev => {
                         if (prev.some(m => m.id === newMsg.id)) return prev
@@ -80,7 +84,7 @@ export default function ConversationThread({
         return () => { supabase.removeChannel(channel) }
     }, [conversation.id, currentUserId, supabase])
 
-    const handleSend = useCallback(async (e: FormEvent) => {
+    const handleSend = useCallback(async (e: SyntheticEvent) => {
         e.preventDefault()
         if (!input.trim() || sending) return
 
@@ -247,7 +251,7 @@ export default function ConversationThread({
                         // Cmd/Ctrl+Enter sends the message
                         if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                             e.preventDefault()
-                            handleSend(e as any)
+                            handleSend(e)
                         }
                     }}
                     placeholder="Type a message..."
