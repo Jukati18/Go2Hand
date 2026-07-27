@@ -13,7 +13,6 @@ import {
     ShieldCheckIcon,
     ClockIcon,
     MagnifyingGlassIcon,
-    BanknotesIcon,
     ExclamationTriangleIcon,
     CheckCircleIcon,
     ChatBubbleLeftEllipsisIcon,

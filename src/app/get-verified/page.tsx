@@ -21,13 +21,8 @@ import {
     ArrowTrendingUpIcon,
     ClockIcon,
     CheckCircleIcon,
-    XCircleIcon,
     InformationCircleIcon,
-    ArrowRightIcon,
-    DocumentTextIcon,
     IdentificationIcon,
-    UserGroupIcon,
-    ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import { ShieldCheckIcon as ShieldSolid } from '@heroicons/react/24/solid'
 

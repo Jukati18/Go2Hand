@@ -11,7 +11,6 @@ import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import { buildTitle, truncateDesc, SITE_URL } from '@/lib/seo'
 import {
-    ShieldCheckIcon,
     LockClosedIcon,
     CheckCircleIcon,
     ExclamationTriangleIcon,

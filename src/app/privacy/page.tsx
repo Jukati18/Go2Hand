@@ -18,13 +18,9 @@ import {
     KeyIcon,
     DocumentTextIcon,
     CheckCircleIcon,
-    ArrowRightIcon,
     EnvelopeIcon,
     FingerPrintIcon,
-    BanknotesIcon,
-    UserIcon,
     ShareIcon,
-    ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import { LockClosedIcon as LockSolid } from '@heroicons/react/24/solid'
 

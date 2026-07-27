@@ -27,7 +27,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { CheckCircleIcon as CheckSolid } from '@heroicons/react/24/solid'
 import type { Order, OrderStatus } from '@/types/order'
-import { getInspectionDaysRemaining, formatOrderAmount } from '@/services/orderService'
+import { getInspectionDaysRemaining } from '@/services/orderService'
 import {
     actionMarkShipped,
     actionMarkReceived,

@@ -23,7 +23,6 @@ import { useState } from 'react'
 import Image from 'next/image'
 import {
     StarIcon,
-    CheckCircleIcon,
     PencilSquareIcon,
 } from '@heroicons/react/24/outline'
 import { CheckCircleIcon as CheckSolid } from '@heroicons/react/24/solid'

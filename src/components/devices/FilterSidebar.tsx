@@ -12,7 +12,6 @@
 
 import { useState } from 'react';
 import { ChevronDownIcon, XMarkIcon, FunnelIcon } from '@heroicons/react/24/outline';
-import type { ListingFilters } from '@/services/deviceService';
 import type { BrandOption } from '@/hooks/useFilterOptions';
 
 // ── Static filter options ──────────────────────────────────────────

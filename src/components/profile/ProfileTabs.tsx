@@ -13,7 +13,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { TagIcon, StarIcon, InboxIcon } from '@heroicons/react/24/outline'
+import { TagIcon, StarIcon } from '@heroicons/react/24/outline'
 import DeviceCard from '@/components/devices/DeviceCard'
 import ReviewCard from '@/components/reviews/ReviewCard'
 import type { Device } from '@/types/device'

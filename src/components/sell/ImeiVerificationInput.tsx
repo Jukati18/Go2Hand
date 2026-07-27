@@ -26,7 +26,6 @@ import {
     XCircleIcon,
     ArrowPathIcon,
     QuestionMarkCircleIcon,
-    ClipboardDocumentIcon,
 } from "@heroicons/react/24/outline";
 import { CheckCircleIcon as CheckSolid } from "@heroicons/react/24/solid";
 import {

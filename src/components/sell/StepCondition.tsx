@@ -124,7 +124,6 @@ export default function StepCondition({
 
     // Determine IMEI vs Serial based on category
     const isPhone  = data.category?.slug === 'smartphones'
-    const isLaptop = ['laptops', 'desktops'].includes(data.category?.slug ?? '')
     const verifyType: 'imei' | 'serial' = isPhone ? 'imei' : 'serial'
 
     return (

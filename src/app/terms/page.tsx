@@ -11,14 +11,12 @@ import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import { buildTitle, truncateDesc, SITE_URL } from '@/lib/seo'
 import {
-    ScaleIcon,
     CurrencyDollarIcon,
     VideoCameraIcon,
     DevicePhoneMobileIcon,
     ExclamationTriangleIcon,
     CheckCircleIcon,
     XCircleIcon,
-    ArrowPathIcon,
     EnvelopeIcon,
     ShieldExclamationIcon,
     ClockIcon,

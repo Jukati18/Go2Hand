@@ -70,7 +70,6 @@ export default function ReviewForm({
     sellerId,
     productId,
     productTitle,
-    productImage,
 }: ReviewFormProps) {
     const [overallRating,  setOverallRating]  = useState(0)
     const [sellerRating,   setSellerRating]   = useState(0)

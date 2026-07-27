@@ -26,9 +26,7 @@ import {
     MapPinIcon,
     CalendarDaysIcon,
     ClockIcon,
-    StarIcon,
     PencilSquareIcon,
-    CheckBadgeIcon,
 } from '@heroicons/react/24/outline'
 import { ShieldCheckIcon as ShieldSolid } from '@heroicons/react/24/solid'
 import type { UserProfile } from '@/services/profileService'

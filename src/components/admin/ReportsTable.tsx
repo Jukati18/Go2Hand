@@ -28,7 +28,6 @@ import {
     FlagIcon,
     ChevronDownIcon,
     ChevronUpIcon,
-    ChevronUpDownIcon,
     ExclamationTriangleIcon,
     CheckCircleIcon,
     XCircleIcon,
@@ -40,7 +39,6 @@ import {
     NoSymbolIcon,
     BellAlertIcon,
 } from '@heroicons/react/24/outline'
-import { ShieldCheckIcon as ShieldSolid } from '@heroicons/react/24/solid'
 import type { AdminReport } from '@/app/admin/reports/page'
 import {
     actionAdminResolveReport,

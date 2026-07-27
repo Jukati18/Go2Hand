@@ -10,7 +10,6 @@
 // ─────────────────────────────────────────────────────────────────
 
 import {
-    ShieldCheckIcon,
     ShieldExclamationIcon,
     QuestionMarkCircleIcon,
 } from '@heroicons/react/24/outline'

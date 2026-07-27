@@ -225,7 +225,6 @@ export default async function AdminImeiReviewsPage() {
     // Derived counts for stat strip
     const activeCount         = items.filter(i => i.status === 'active').length
     const pendingReviewCount  = items.filter(i => i.status === 'pending_review').length
-    const inactiveCount       = items.filter(i => i.status === 'inactive').length
     const withIcloudLock      = items.filter(i => i.icloudStatus === 'locked').length
 
     return (

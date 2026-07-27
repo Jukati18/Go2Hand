@@ -42,8 +42,6 @@ import {
     ArrowTopRightOnSquareIcon,
     DevicePhoneMobileIcon,
     UserCircleIcon,
-    CurrencyDollarIcon,
-    FunnelIcon,
     TagIcon,
 } from '@heroicons/react/24/outline'
 import {

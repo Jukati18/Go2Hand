@@ -32,7 +32,6 @@ import {
     CurrencyDollarIcon,
     ShoppingBagIcon,
     UsersIcon,
-    TagIcon,
     ArrowTrendingUpIcon,
     ArrowTrendingDownIcon,
     ShieldCheckIcon,
@@ -44,10 +43,6 @@ import { ShieldCheckIcon as ShieldSolid } from '@heroicons/react/24/solid'
 import type {
     AnalyticsData,
     DailyStat,
-    CategoryStat,
-    FunnelStep,
-    TopSeller,
-    RecentOrder,
 } from '@/app/admin/analytics/page'
 
 // ─────────────────────────────────────────────────────────────────
@@ -200,11 +195,10 @@ function BarChart({
     height?: number
 }) {
     const max = Math.max(...data.map(d => d.value), 1)
-    const barW = 100 / data.length
 
     return (
         <div className="relative w-full flex items-end gap-px" style={{ height }}>
-            {data.map((d, i) => {
+            {data.map((d) => {
                 const h = Math.max((d.value / max) * 100, d.value > 0 ? 2 : 0)
                 return (
                     <div

@@ -110,19 +110,9 @@ const SELLER_STEPS: StepConfig[] = [
     },
 ]
 
-// ── Status ordering for "done" calculation ─────────────────────────
-const STATUS_ORDER: OrderStatus[] = [
-    'pending', 'paid', 'shipped', 'in_inspection', 'completed',
-]
-
-function getStatusIndex(status: OrderStatus): number {
-    return STATUS_ORDER.indexOf(status)
-}
-
 // ── Step row component ─────────────────────────────────────────────
 function StepRow({
     step,
-    index,
     status,
     orderId,
     isLast,
@@ -135,7 +125,6 @@ function StepRow({
 }) {
     const isDone    = step.doneWhen.includes(status)
     const isActive  = step.activeWhen.includes(status)
-    const isPending = !isDone && !isActive
 
     const Icon = step.icon
 

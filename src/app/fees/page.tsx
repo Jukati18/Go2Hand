@@ -24,7 +24,6 @@ import {
     BuildingLibraryIcon,
     InformationCircleIcon,
     CheckCircleIcon,
-    ArrowRightIcon,
     CurrencyDollarIcon,
     LockClosedIcon,
     SparklesIcon,

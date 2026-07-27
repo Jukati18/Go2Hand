@@ -23,7 +23,6 @@ import {
     XMarkIcon,
     CameraIcon,
     ExclamationCircleIcon,
-    CheckCircleIcon,
 } from '@heroicons/react/24/outline'
 import { CheckCircleIcon as CheckSolid } from '@heroicons/react/24/solid'
 import { actionUpdateProfile } from '@/actions/profile'

@@ -29,7 +29,6 @@ import {
     CheckCircleIcon,
     ExclamationTriangleIcon,
     ShieldCheckIcon,
-    TagIcon,
 } from '@heroicons/react/24/outline'
 import EscrowTimelineMini from '@/components/orders/EscrowTimelineMini'
 import { STATUS_LABELS, STATUS_PILL_STYLES } from '@/components/orders/OrderStatusTracker'

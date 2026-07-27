@@ -94,19 +94,6 @@ export default function OrderHistoryPage() {
     const inspectionOrders = orders.filter(o => o.status === 'in_inspection')
     const completedOrders = orders.filter(o => o.status === 'completed')
 
-    // ── Filter: only show status tabs that have orders ────────────
-    // Always show 'all'; only show other statuses if they have data
-    // (we check from the full orders list when on the 'all' filter)
-    const visibleFilters = STATUS_FILTERS.filter(f => {
-        if (f.value === 'all') return true
-        if (statusFilter === 'all') {
-            // Show only statuses that have at least one order
-            return orders.some(o => o.status === f.value)
-        }
-        // Always show the active filter + 'all'
-        return f.value === statusFilter
-    })
-
     return (
         <div className="min-h-screen bg-[#F4F2EE]">
             <Navbar />

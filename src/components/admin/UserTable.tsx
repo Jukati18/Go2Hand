@@ -25,7 +25,6 @@ import {
     ChevronUpIcon,
     ChevronDownIcon,
     XMarkIcon,
-    ShieldCheckIcon,
     StarIcon,
     TagIcon,
     ShoppingBagIcon,
@@ -223,7 +222,7 @@ function UserDrawer({
                             { label: 'Seller Rating', value: user.sellerRating > 0 ? `${user.sellerRating.toFixed(1)} ★` : '—', icon: StarIcon },
                             { label: 'Listings',      value: user.listingCount,     icon: TagIcon         },
                             { label: 'Purchases',     value: user.buyerOrderCount,  icon: ShoppingBagIcon },
-                        ].map(({ label, value, icon: Icon }) => (
+                        ].map(({ label, value }) => (
                             <div key={label} className="bg-gray-50 rounded-xl px-4 py-3">
                                 <p className="text-lg font-black text-gray-900 leading-none mb-0.5">
                                     {value}
